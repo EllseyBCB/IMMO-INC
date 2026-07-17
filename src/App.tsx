@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { ladeSpielstand, nettoVermoegen, useGame } from './state/game'
+import { gesamtVermoegen, ladeSpielstand, useGame } from './state/game'
 import { euro, euroShort, gameDatum } from './lib/format'
 import Onboarding from './features/onboarding/Onboarding'
 import Markt from './features/markt/Markt'
@@ -11,9 +11,9 @@ import Finanzen from './features/finanzen/Finanzen'
 import Handy from './features/handy/Handy'
 
 function TopBar() {
-  const { cash, owned, monthIndex } = useGame()
+  const { cash, owned, monthIndex, depot } = useGame()
   const monatVorspringen = useGame((s) => s.monatVorspringen)
-  const vermoegen = nettoVermoegen(cash, owned)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/85 backdrop-blur">

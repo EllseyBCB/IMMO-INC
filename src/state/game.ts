@@ -4,6 +4,7 @@ import { annuitaet, kaufnebenkosten, spekulationssteuer, verkaufsnebenkosten } f
 import { berechneRenovierung } from '../data/renovation'
 import type { Risiko } from '../data/mieter'
 import { LUXUS_KATALOG, sonderausgabenMonat } from '../data/lifestyle'
+import { ORDERGEBUEHR, assetPreis, depotWert, getAsset, type DepotPosition } from '../data/assets'
 
 // Echtzeit-Modell (Clash-Royale-Stil): Zeit läuft real, nicht per Klick.
 export const MS_PRO_MONAT = 4 * 60 * 60 * 1000 // 1 Spiel-Monat = 4 Echt-Stunden
@@ -55,7 +56,7 @@ export interface LogEintrag {
   month: number
   text: string
   betrag?: number
-  art: 'kauf' | 'verkauf' | 'renovierung' | 'miete' | 'rate' | 'kosten' | 'gehalt' | 'info'
+  art: 'kauf' | 'verkauf' | 'renovierung' | 'miete' | 'rate' | 'kosten' | 'gehalt' | 'invest' | 'info'
 }
 
 export interface Lebenssituation {
@@ -75,6 +76,7 @@ export interface GameState {
   owned: OwnedProperty[]
   verkauft: string[] // property ids die vom Markt verschwinden
   gekaufteLuxus: string[] // ids gekaufter Lifestyle-Artikel
+  depot: DepotPosition[] // Aktien/ETF/Krypto-Positionen
   log: LogEintrag[]
 
   neuesSpiel: (l: Lebenssituation, startkapital: number) => void
@@ -96,6 +98,10 @@ export interface GameState {
   verkaufen: (uid: string, preis: number) => number
   /** Kauft einen Lifestyle-Artikel (verbessert den Lebensstandard). */
   luxusKaufen: (id: string) => void
+  /** Kauft `menge` Anteile eines Assets zum aktuellen Kurs (inkl. Gebühr). */
+  assetKaufen: (id: string, menge: number) => void
+  /** Verkauft `menge` Anteile eines Assets zum aktuellen Kurs (inkl. Gebühr). */
+  assetVerkaufen: (id: string, menge: number) => void
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
   /** Springt exakt einen Monat vor (als wären die 4 Echt-Stunden vergangen). */
@@ -118,6 +124,7 @@ function persist(state: GameState) {
       owned: state.owned,
       verkauft: state.verkauft,
       gekaufteLuxus: state.gekaufteLuxus,
+      depot: state.depot,
       log: state.log,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
@@ -157,6 +164,7 @@ export const useGame = create<GameState>((set, get) => ({
   owned: [],
   verkauft: [],
   gekaufteLuxus: [],
+  depot: [],
   log: [],
 
   neuesSpiel: (l, startkapital) => {
@@ -171,6 +179,7 @@ export const useGame = create<GameState>((set, get) => ({
       owned: [],
       verkauft: [],
       gekaufteLuxus: [],
+      depot: [],
       log: [
         {
           month: 0,
@@ -197,6 +206,7 @@ export const useGame = create<GameState>((set, get) => ({
       owned: [],
       verkauft: [],
       gekaufteLuxus: [],
+      depot: [],
       log: [],
     })
   },
@@ -373,6 +383,72 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
+  assetKaufen: (id, menge) => {
+    const s = get()
+    const a = getAsset(id)
+    if (!a || menge <= 0) return
+    const kurs = assetPreis(a, s.monthIndex)
+    const kosten = kurs * menge * (1 + ORDERGEBUEHR)
+    if (kosten > s.cash) return
+
+    const idx = s.depot.findIndex((p) => p.assetId === id)
+    const depot = [...s.depot]
+    if (idx >= 0) depot[idx] = { ...depot[idx], menge: depot[idx].menge + menge, investiert: depot[idx].investiert + kosten }
+    else depot.push({ assetId: id, menge, investiert: kosten })
+
+    set({
+      cash: Math.round(s.cash - kosten),
+      depot,
+      log: [
+        {
+          month: Math.floor(s.monthIndex),
+          text: `${a.emoji} Gekauft: ${menge.toLocaleString('de-DE', { maximumFractionDigits: 4 })} ${a.kuerzel} @ ${Math.round(kurs).toLocaleString('de-DE')} €`,
+          betrag: -Math.round(kosten),
+          art: 'invest' as const,
+        },
+        ...s.log,
+      ].slice(0, 200),
+    })
+    persist(get())
+  },
+
+  assetVerkaufen: (id, menge) => {
+    const s = get()
+    const a = getAsset(id)
+    if (!a) return
+    const idx = s.depot.findIndex((p) => p.assetId === id)
+    if (idx < 0) return
+    const pos = s.depot[idx]
+    const verkaufMenge = Math.min(menge, pos.menge)
+    if (verkaufMenge <= 0) return
+
+    const kurs = assetPreis(a, s.monthIndex)
+    const erloes = kurs * verkaufMenge * (1 - ORDERGEBUEHR)
+    const anteil = verkaufMenge / pos.menge
+    const investiertAnteil = pos.investiert * anteil
+
+    const depot = [...s.depot]
+    const restMenge = pos.menge - verkaufMenge
+    if (restMenge <= 1e-9) depot.splice(idx, 1)
+    else depot[idx] = { ...pos, menge: restMenge, investiert: pos.investiert - investiertAnteil }
+
+    const gewinn = erloes - investiertAnteil
+    set({
+      cash: Math.round(s.cash + erloes),
+      depot,
+      log: [
+        {
+          month: Math.floor(s.monthIndex),
+          text: `${a.emoji} Verkauft: ${verkaufMenge.toLocaleString('de-DE', { maximumFractionDigits: 4 })} ${a.kuerzel} — ${gewinn >= 0 ? 'Gewinn' : 'Verlust'} ${Math.round(gewinn).toLocaleString('de-DE')} €`,
+          betrag: Math.round(erloes),
+          art: 'invest' as const,
+        },
+        ...s.log,
+      ].slice(0, 200),
+    })
+    persist(get())
+  },
+
   renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger) => {
     const s = get()
     const idx = s.owned.findIndex((o) => o.uid === uid)
@@ -498,8 +574,8 @@ export const useGame = create<GameState>((set, get) => ({
     // private Lebenshaltung
     cash += (s.lebenssituation.nettoEinkommen - s.lebenssituation.fixkosten) * elapsed
 
-    // Sonderausgaben: wachsen mit dem Vermögen + Unterhalt des Lebensstandards
-    const vermoegenVorher = nettoVermoegen(s.cash, s.owned)
+    // Sonderausgaben: wachsen mit dem Vermögen (inkl. Depot) + Lebensstandard
+    const vermoegenVorher = nettoVermoegen(s.cash, s.owned) + depotWert(s.depot, s.monthIndex)
     cash -= sonderausgabenMonat(vermoegenVorher, s.gekaufteLuxus) * elapsed
 
     // Monatliche Umsätze buchen, sobald eine Monatsgrenze überschritten wird —
@@ -522,6 +598,16 @@ export const useGame = create<GameState>((set, get) => ({
       for (let m = endM; m >= von; m--) {
         if (netto > 0) neueLogs.push({ month: m, text: 'Gehaltseingang', betrag: netto, art: 'gehalt' })
         if (sumMiete > 0) neueLogs.push({ month: m, text: 'Mieteinnahmen', betrag: sumMiete, art: 'miete' })
+        // Dividenden je dividendenzahlendem Depot-Wert
+        for (const pos of s.depot) {
+          const a = getAsset(pos.assetId)
+          if (!a || a.dividende <= 0) continue
+          const div = Math.round(pos.menge * assetPreis(a, m) * (a.dividende / 12))
+          if (div > 0) {
+            neueLogs.push({ month: m, text: `Dividende ${a.name}`, betrag: div, art: 'invest' })
+            cash += div
+          }
+        }
         if (sumRate > 0) neueLogs.push({ month: m, text: 'Kreditraten (Immobilien)', betrag: -sumRate, art: 'rate' })
         if (sumHaus > 0) neueLogs.push({ month: m, text: 'Hausgeld / Nebenkosten', betrag: -sumHaus, art: 'kosten' })
         if (fix > 0) neueLogs.push({ month: m, text: 'Lebenshaltung (privat)', betrag: -fix, art: 'kosten' })
@@ -594,6 +680,11 @@ export function monatlicheMiete(owned: OwnedProperty[]): number {
 
 export function nettoVermoegen(cash: number, owned: OwnedProperty[]): number {
   return cash + portfolioWert(owned) - schulden(owned)
+}
+
+/** Gesamtvermögen inkl. Wertpapierdepot (Aktien/ETF/Krypto) zur Spielzeit t. */
+export function gesamtVermoegen(cash: number, owned: OwnedProperty[], depot: DepotPosition[], t: number): number {
+  return nettoVermoegen(cash, owned) + depotWert(depot, t)
 }
 
 export function berechneFinanzierung(

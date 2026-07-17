@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import {
-  nettoVermoegen,
+  gesamtVermoegen,
   portfolioWert,
   schulden,
   useGame,
   type OwnedProperty,
 } from '../../state/game'
 import { lebensstandard, sonderausgabenMonat } from '../../data/lifestyle'
+import { depotWert } from '../../data/assets'
 import { euro, euroShort, gameDate, gameDatum, pct } from '../../lib/format'
 
 const ART: Record<string, string> = {
@@ -17,6 +18,7 @@ const ART: Record<string, string> = {
   rate: '🏦',
   kosten: '📉',
   gehalt: '💶',
+  invest: '📈',
   info: 'ℹ️',
 }
 
@@ -36,10 +38,11 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
   const game = useGame()
   const [view, setView] = useState<'uebersicht' | 'privat' | 'kredite'>('uebersicht')
 
-  const { cash, owned, monthIndex } = game
+  const { cash, owned, monthIndex, depot } = game
   const debt = schulden(owned)
   const wert = portfolioWert(owned)
-  const vermoegen = nettoVermoegen(cash, owned)
+  const investWert = depotWert(depot, monthIndex)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
   const kredite = owned.filter((o) => o.restschuld > 0)
 
   return (
@@ -90,7 +93,10 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
                 saldo={-debt}
                 onClick={() => setView('kredite')}
               />
-              <KontoZeile emoji="📈" farbe="bg-emerald-500" titel="Immobilienvermögen" unter={`${owned.length} Objekte`} iban={iban('vermoegen')} saldo={wert} />
+              <KontoZeile emoji="🏘️" farbe="bg-emerald-500" titel="Immobilienvermögen" unter={`${owned.length} Objekte`} iban={iban('vermoegen')} saldo={wert} />
+              {(investWert > 0 || depot.length > 0) && (
+                <KontoZeile emoji="📈" farbe="bg-indigo-500" titel="Wertpapierdepot" unter={`${depot.length} Position${depot.length === 1 ? '' : 'en'}`} iban={iban('depot')} saldo={investWert} />
+              )}
             </div>
           </div>
         </div>
@@ -145,10 +151,10 @@ interface Posten {
 }
 
 function PrivatKonto() {
-  const { cash, owned, log, lebenssituation, gekaufteLuxus } = useGame()
+  const { cash, owned, log, lebenssituation, gekaufteLuxus, depot, monthIndex } = useGame()
   const netto = lebenssituation.nettoEinkommen
   const fix = lebenssituation.fixkosten
-  const vermoegen = nettoVermoegen(cash, owned)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
   const sonder = sonderausgabenMonat(vermoegen, gekaufteLuxus)
   const ls = lebensstandard(vermoegen, gekaufteLuxus)
 

@@ -10,6 +10,7 @@ import VermietungApp from './VermietungApp'
 import BautraegerApp from './BautraegerApp'
 import BankingApp from './BankingApp'
 import ShopApp from './ShopApp'
+import BoerseApp from './BoerseApp'
 
 export default function Handy() {
   const [offen, setOffen] = useState<string | null>(null)
@@ -37,6 +38,8 @@ export default function Handy() {
                 <BankingApp onClose={() => setAppOffen(null)} />
               ) : appOffen === 'shop' ? (
                 <ShopApp onClose={() => setAppOffen(null)} />
+              ) : appOffen === 'boerse' ? (
+                <BoerseApp onClose={() => setAppOffen(null)} />
               ) : (
                 <HomeScreen onOpen={setOffen} onOpenApp={setAppOffen} />
               )}
@@ -83,6 +86,7 @@ function HomeScreen({ onOpen, onOpenApp }: { onOpen: (id: string) => void; onOpe
         <AppKachel emoji="🔑" label="Vermietung" farbe="from-emerald-400 to-emerald-600" onClick={() => onOpenApp('vermietung')} />
         <AppKachel emoji="🏗️" label="Bauträger" farbe="from-orange-400 to-orange-600" onClick={() => onOpenApp('bautraeger')} />
         <AppKachel emoji="🏦" label="Banking" farbe="from-brand-500 to-brand-700" onClick={() => onOpenApp('banking')} />
+        <AppKachel emoji="📈" label="Börse" farbe="from-indigo-500 to-blue-600" onClick={() => onOpenApp('boerse')} />
         <AppKachel emoji="🛍️" label="Shop" farbe="from-violet-500 to-fuchsia-600" onClick={() => onOpenApp('shop')} />
       </div>
 

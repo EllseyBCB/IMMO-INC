@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import {
+  gesamtVermoegen,
   monatlicheMiete,
   monatlicheRaten,
-  nettoVermoegen,
   portfolioWert,
   schulden,
   useGame,
@@ -10,6 +10,7 @@ import {
 import { Button, Card, Modal, Stat } from '../../components/ui'
 import { euro, gameDate } from '../../lib/format'
 import { lebensstandard, sonderausgabenMonat } from '../../data/lifestyle'
+import { depotEinstand, depotWert } from '../../data/assets'
 
 const ART_STYLE: Record<string, { icon: string; tone: string }> = {
   kauf: { icon: '🏠', tone: 'text-ink-700' },
@@ -19,16 +20,19 @@ const ART_STYLE: Record<string, { icon: string; tone: string }> = {
   rate: { icon: '🏦', tone: 'text-rose-600' },
   kosten: { icon: '📉', tone: 'text-rose-600' },
   gehalt: { icon: '💶', tone: 'text-emerald-600' },
+  invest: { icon: '📈', tone: 'text-indigo-600' },
   info: { icon: 'ℹ️', tone: 'text-ink-500' },
 }
 
 export default function Finanzen() {
-  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, reset } = useGame()
+  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, depot, reset } = useGame()
   const [resetOffen, setResetOffen] = useState(false)
 
   const wert = portfolioWert(owned)
   const debt = schulden(owned)
-  const vermoegen = nettoVermoegen(cash, owned)
+  const investWert = depotWert(depot, monthIndex)
+  const investGV = investWert - depotEinstand(depot)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
   const raten = monatlicheRaten(owned)
   const miete = monatlicheMiete(owned)
   const hausgeld = owned
@@ -73,6 +77,25 @@ export default function Finanzen() {
           </div>
         </div>
       </Card>
+
+      {/* Wertpapierdepot */}
+      {depot.length > 0 && (
+        <Card className="mt-4 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Wertpapierdepot</h2>
+              <p className="text-xs text-ink-400">{depot.length} Position{depot.length === 1 ? '' : 'en'} · Aktien, ETFs & Krypto</p>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-black tabular-nums text-ink-900">{euro(investWert)}</div>
+              <div className={`text-xs font-bold ${investGV >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {investGV >= 0 ? '+' : ''}
+                {euro(investGV)}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Cashflow */}
       <Card className="mt-4 p-5">
