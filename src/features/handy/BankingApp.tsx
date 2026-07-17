@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   monatlicheMiete,
   monatlicheRaten,
@@ -5,6 +6,7 @@ import {
   portfolioWert,
   schulden,
   useGame,
+  type OwnedProperty,
 } from '../../state/game'
 import { euro, euroShort, gameDate, pct } from '../../lib/format'
 
@@ -18,123 +20,224 @@ const ART: Record<string, string> = {
   info: 'ℹ️',
 }
 
-export default function BankingApp({ onClose }: { onClose: () => void }) {
-  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation } = useGame()
+/** Deterministische Pseudo-IBAN (DE… ) aus einem Seed. */
+function iban(seed: string): string {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  const a = (h % 89 + 10).toString()
+  const rest = (h.toString() + Math.imul(h, 7).toString() + Math.imul(h, 13).toString()).replace(/\D/g, '').padEnd(18, '0').slice(0, 18)
+  return `DE${a} ${rest.slice(0, 4)} ${rest.slice(4, 8)} ${rest.slice(8, 12)} ${rest.slice(12, 16)} ${rest.slice(16, 18)}`
+}
 
-  const vermoegen = nettoVermoegen(cash, owned)
-  const wert = portfolioWert(owned)
+export default function BankingApp({ onClose }: { onClose: () => void }) {
+  const game = useGame()
+  const [view, setView] = useState<'uebersicht' | 'privat' | 'kredite'>('uebersicht')
+
+  const { cash, owned, monthIndex } = game
   const debt = schulden(owned)
-  const raten = monatlicheRaten(owned)
-  const miete = monatlicheMiete(owned)
-  const hausgeld = owned
-    .filter((o) => o.nutzung !== 'vermietet')
-    .reduce((s, o) => s + o.property.hausgeldOderNebenkosten, 0)
-  const privat = lebenssituation.nettoEinkommen - lebenssituation.fixkosten
-  const cashflow = privat + miete - raten - hausgeld
-  const wachstum = startEigenkapital > 0 ? ((vermoegen - startEigenkapital) / startEigenkapital) * 100 : 0
+  const wert = portfolioWert(owned)
+  const vermoegen = nettoVermoegen(cash, owned)
   const kredite = owned.filter((o) => o.restschuld > 0)
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-white/85 px-2 py-2 pt-3 backdrop-blur">
-        <button onClick={onClose} className="rounded-lg px-2 py-1 text-lg text-brand-600" aria-label="Zurück">
-          ‹
-        </button>
-        <span className="text-sm font-bold text-ink-900">Banking</span>
-        <span className="ml-auto pr-2 text-[10px] text-ink-400">{gameDate(monthIndex)}</span>
-      </div>
-
-      <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
-        {/* Kontostand */}
-        <div className="rounded-2xl bg-gradient-to-br from-ink-900 to-slate-700 p-4 text-white shadow-md">
-          <div className="text-[11px] uppercase tracking-wide text-white/60">Girokonto · Liquidität</div>
-          <div className="mt-0.5 text-3xl font-black tabular-nums">{euro(cash)}</div>
-          <div className="mt-3 flex items-center justify-between border-t border-white/15 pt-3 text-xs">
-            <div>
-              <div className="text-white/60">Netto-Vermögen</div>
-              <div className="font-bold tabular-nums">{euroShort(vermoegen)}</div>
-            </div>
-            <div className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${wachstum >= 0 ? 'bg-emerald-500/25 text-emerald-200' : 'bg-rose-500/25 text-rose-200'}`}>
-              {wachstum >= 0 ? '▲' : '▼'} {Math.abs(wachstum).toFixed(1)} %
-            </div>
-          </div>
-        </div>
-
-        {/* Kacheln */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-2xl bg-white p-3 shadow-soft ring-1 ring-black/5">
-            <div className="text-[11px] uppercase tracking-wide text-ink-500">Immobilienwert</div>
-            <div className="mt-0.5 text-lg font-bold tabular-nums text-ink-900">{euroShort(wert)}</div>
-          </div>
-          <div className="rounded-2xl bg-white p-3 shadow-soft ring-1 ring-black/5">
-            <div className="text-[11px] uppercase tracking-wide text-ink-500">Schulden</div>
-            <div className="mt-0.5 text-lg font-bold tabular-nums text-rose-600">{euroShort(debt)}</div>
-          </div>
-        </div>
-
-        {/* Cashflow */}
-        <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
-          <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Cashflow / Monat</div>
-          <div className="mt-2 space-y-1.5 text-sm">
-            <Zeile label="Einkommen − Fixkosten" v={privat} />
-            <Zeile label="Mieteinnahmen" v={miete} />
-            <Zeile label="Kreditraten" v={-raten} />
-            <Zeile label="Hausgeld (leer)" v={-hausgeld} />
-            <div className="my-1 border-t border-slate-100" />
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-ink-900">Summe</span>
-              <span className={`text-base font-black tabular-nums ${cashflow >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {cashflow >= 0 ? '+' : ''}
-                {euro(cashflow)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Kredite */}
-        {kredite.length > 0 && (
-          <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
-            <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Laufende Kredite</div>
-            <div className="mt-2 divide-y divide-slate-100">
-              {kredite.map((o) => (
-                <div key={o.uid} className="flex items-center justify-between py-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-ink-900">{o.property.titel}</div>
-                    <div className="text-[11px] text-ink-500">{pct(o.finanzierung.sollzins * 100, 2)} · {euro(o.finanzierung.monatsrate)}/M</div>
-                  </div>
-                  <div className="shrink-0 text-sm font-bold tabular-nums text-rose-600">{euro(o.restschuld)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Bank-Kopf */}
+      <div className="flex items-center gap-2 bg-brand-600 px-3 py-2 pt-3 text-white">
+        {view !== 'uebersicht' ? (
+          <button onClick={() => setView('uebersicht')} className="rounded-lg px-1.5 py-0.5 text-lg" aria-label="Zurück">
+            ‹
+          </button>
+        ) : (
+          <button onClick={onClose} className="rounded-lg px-1.5 py-0.5 text-lg" aria-label="Schließen">
+            ✕
+          </button>
         )}
+        <span className="grid h-6 w-6 place-items-center rounded-md bg-white/20 text-xs font-black">II</span>
+        <span className="text-sm font-bold">IMMO&nbsp;INC Bank</span>
+        <span className="ml-auto text-[10px] text-white/70">{gameDate(monthIndex)}</span>
+      </div>
 
-        {/* Umsätze */}
-        <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
-          <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Umsätze</div>
-          {log.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-500">Noch keine Umsätze.</p>
-          ) : (
-            <div className="mt-1">
-              {log.slice(0, 30).map((e, i) => (
-                <div key={i} className="flex items-start gap-2 border-b border-slate-50 py-2 last:border-0">
-                  <span className="text-base">{ART[e.art] ?? 'ℹ️'}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs text-ink-800">{e.text}</div>
-                    <div className="text-[10px] text-ink-400">{gameDate(e.month)}</div>
-                  </div>
-                  {e.betrag !== undefined && (
-                    <span className={`shrink-0 text-xs font-bold tabular-nums ${e.betrag >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {e.betrag >= 0 ? '+' : ''}
-                      {euro(e.betrag)}
-                    </span>
-                  )}
-                </div>
-              ))}
+      {view === 'uebersicht' && (
+        <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+          <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+            <div className="text-[11px] uppercase tracking-wide text-ink-500">Finanzübersicht · Gesamtvermögen</div>
+            <div className={`mt-0.5 text-3xl font-black tabular-nums ${vermoegen >= 0 ? 'text-ink-900' : 'text-rose-600'}`}>
+              {euro(vermoegen)}
             </div>
-          )}
+          </div>
+
+          <div>
+            <div className="mb-1 px-1 text-xs font-bold uppercase tracking-wide text-ink-500">Meine Konten</div>
+            <div className="space-y-2">
+              <KontoZeile
+                emoji="👤"
+                farbe="bg-brand-500"
+                titel="Privatkonto"
+                unter="Girokonto"
+                iban={iban('privat')}
+                saldo={cash}
+                onClick={() => setView('privat')}
+              />
+              <KontoZeile
+                emoji="🏠"
+                farbe="bg-rose-500"
+                titel="Immobilienkredite"
+                unter={`${kredite.length} Darlehen`}
+                iban={iban('kredite')}
+                saldo={-debt}
+                onClick={() => setView('kredite')}
+              />
+              <KontoZeile emoji="📈" farbe="bg-emerald-500" titel="Immobilienvermögen" unter={`${owned.length} Objekte`} iban={iban('vermoegen')} saldo={wert} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'privat' && <PrivatKonto />}
+      {view === 'kredite' && <KrediteKonto kredite={kredite} debt={debt} wert={wert} />}
+    </div>
+  )
+}
+
+function KontoZeile({
+  emoji,
+  farbe,
+  titel,
+  unter,
+  iban,
+  saldo,
+  onClick,
+}: {
+  emoji: string
+  farbe: string
+  titel: string
+  unter: string
+  iban: string
+  saldo: number
+  onClick?: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={`flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-soft ring-1 ring-black/5 ${onClick ? 'transition hover:bg-slate-50' : ''}`}
+    >
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${farbe} text-lg text-white`}>{emoji}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-ink-900">{titel}</span>
+        <span className="block truncate text-[10px] text-ink-400">{unter} · {iban}</span>
+      </span>
+      <span className={`shrink-0 text-sm font-black tabular-nums ${saldo < 0 ? 'text-rose-600' : 'text-ink-900'}`}>
+        {euroShort(saldo)}
+      </span>
+      {onClick && <span className="text-ink-300">›</span>}
+    </button>
+  )
+}
+
+function PrivatKonto() {
+  const { cash, owned, log, lebenssituation } = useGame()
+  const netto = lebenssituation.nettoEinkommen
+  const fix = lebenssituation.fixkosten
+  const miete = monatlicheMiete(owned)
+  const raten = monatlicheRaten(owned)
+  const hausgeld = owned.filter((o) => o.nutzung !== 'vermietet').reduce((s, o) => s + o.property.hausgeldOderNebenkosten, 0)
+
+  return (
+    <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-700 p-4 text-white shadow-md">
+        <div className="text-[11px] uppercase tracking-wide text-white/70">Privatkonto · Kontostand</div>
+        <div className="mt-0.5 text-3xl font-black tabular-nums">{euro(cash)}</div>
+        <div className="mt-2 text-[11px] text-white/70">{iban('privat')}</div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+        <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Daueraufträge / wiederkehrend</div>
+        <div className="mt-2 space-y-1.5 text-sm">
+          <Zeile label="Gehaltseingang" v={netto} />
+          <Zeile label="Lebenshaltung (privat)" v={-fix} />
+          {miete > 0 && <Zeile label="Mieteingänge" v={miete} />}
+          {raten > 0 && <Zeile label="Kreditraten (Immobilien)" v={-raten} />}
+          {hausgeld > 0 && <Zeile label="Hausgeld / Nebenkosten" v={-hausgeld} />}
+          <div className="my-1 border-t border-slate-100" />
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-ink-900">Saldo / Monat</span>
+            <SaldoText v={netto - fix + miete - raten - hausgeld} bold />
+          </div>
         </div>
       </div>
+
+      <Umsaetze log={log} />
+    </div>
+  )
+}
+
+function KrediteKonto({ kredite, debt, wert }: { kredite: OwnedProperty[]; debt: number; wert: number }) {
+  return (
+    <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="rounded-2xl bg-gradient-to-br from-rose-500 to-rose-700 p-4 text-white shadow-md">
+        <div className="text-[11px] uppercase tracking-wide text-white/70">Immobilienkredite · Restschuld gesamt</div>
+        <div className="mt-0.5 text-3xl font-black tabular-nums">{euro(debt)}</div>
+        <div className="mt-2 text-[11px] text-white/70">
+          Gesamtbeleihung {wert > 0 ? pct((debt / wert) * 100, 0) : '—'}
+        </div>
+      </div>
+
+      {kredite.length === 0 ? (
+        <div className="rounded-2xl bg-white p-6 text-center text-sm text-ink-500 shadow-soft ring-1 ring-black/5">
+          Keine laufenden Immobilienkredite. Du bist schuldenfrei. 🎉
+        </div>
+      ) : (
+        kredite.map((o) => {
+          const beleihung = o.property.kaufpreis > 0 ? (o.restschuld / o.property.kaufpreis) * 100 : 0
+          return (
+            <div key={o.uid} className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-ink-900">{o.property.titel}</div>
+                  <div className="truncate text-[10px] text-ink-400">Darlehenskonto · {iban(o.uid)}</div>
+                </div>
+                <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">Darlehen</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <Feld label="Restschuld" wert={euro(o.restschuld)} rot />
+                <Feld label="Monatsrate" wert={`${euro(o.finanzierung.monatsrate)}`} rot />
+                <Feld label="Sollzins" wert={pct(o.finanzierung.sollzins * 100, 2)} />
+                <Feld label="Laufzeit" wert={`${o.finanzierung.laufzeitJahre} J`} />
+                <Feld label="urspr. Darlehen" wert={euro(o.finanzierung.darlehen)} />
+                <Feld label="Beleihung" wert={pct(beleihung, 0)} />
+              </div>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+function Umsaetze({ log }: { log: { month: number; text: string; betrag?: number; art: string }[] }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+      <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Umsätze</div>
+      {log.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-500">Noch keine Umsätze.</p>
+      ) : (
+        <div className="mt-1">
+          {log.slice(0, 40).map((e, i) => (
+            <div key={i} className="flex items-start gap-2 border-b border-slate-50 py-2 last:border-0">
+              <span className="text-base">{ART[e.art] ?? 'ℹ️'}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-ink-800">{e.text}</div>
+                <div className="text-[10px] text-ink-400">{gameDate(e.month)}</div>
+              </div>
+              {e.betrag !== undefined && <SaldoText v={e.betrag} />}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -143,10 +246,25 @@ function Zeile({ label, v }: { label: string; v: number }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-ink-600">{label}</span>
-      <span className={`tabular-nums font-semibold ${v >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-        {v > 0 ? '+' : ''}
-        {euro(v)}
-      </span>
+      <SaldoText v={v} />
+    </div>
+  )
+}
+
+function SaldoText({ v, bold }: { v: number; bold?: boolean }) {
+  return (
+    <span className={`tabular-nums ${bold ? 'text-base font-black' : 'text-sm font-semibold'} ${v >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+      {v > 0 ? '+' : ''}
+      {euro(v)}
+    </span>
+  )
+}
+
+function Feld({ label, wert, rot }: { label: string; wert: string; rot?: boolean }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-ink-400">{label}</div>
+      <div className={`text-sm font-bold tabular-nums ${rot ? 'text-rose-600' : 'text-ink-900'}`}>{wert}</div>
     </div>
   )
 }
