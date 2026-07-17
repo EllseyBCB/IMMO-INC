@@ -7,13 +7,15 @@ import { dauer, euro, gameDate } from '../../lib/format'
 import { zustandLabel, zustandTone } from '../markt/propertyUtil'
 import BautraegerModal from './BautraegerModal'
 import VerkaufModal from './VerkaufModal'
+import VermietenModal from './VermietenModal'
 
 export default function Portfolio() {
-  const { owned, setNutzung } = useGame()
+  const owned = useGame((s) => s.owned)
   const [renoUid, setRenoUid] = useState<string | null>(null)
   // Verkauf hält eine Momentaufnahme: nach dem Verkauf verschwindet das Objekt
   // aus `owned`, das Ergebnis-Fenster soll aber sichtbar bleiben.
   const [verkaufObjekt, setVerkaufObjekt] = useState<OwnedProperty | null>(null)
+  const [vermietObjekt, setVermietObjekt] = useState<OwnedProperty | null>(null)
 
   const wert = portfolioWert(owned)
   const debt = schulden(owned)
@@ -50,7 +52,7 @@ export default function Portfolio() {
                 o={o}
                 onRenovieren={() => setRenoUid(o.uid)}
                 onVerkaufen={() => setVerkaufObjekt(o)}
-                onVermieten={() => setNutzung(o.uid, o.nutzung === 'vermietet' ? 'leer' : 'vermietet')}
+                onVermieten={() => setVermietObjekt(o)}
               />
             ))}
           </div>
@@ -60,6 +62,7 @@ export default function Portfolio() {
       {/* Modals immer an gleicher Baum-Position — bleiben über den 1→0-Übergang stabil */}
       {renoObjekt && <BautraegerModal o={renoObjekt} onClose={() => setRenoUid(null)} />}
       {verkaufObjekt && <VerkaufModal o={verkaufObjekt} onClose={() => setVerkaufObjekt(null)} />}
+      {vermietObjekt && <VermietenModal o={vermietObjekt} onClose={() => setVermietObjekt(null)} />}
     </div>
   )
 }
@@ -75,7 +78,7 @@ function ObjektKarte({
   onVerkaufen: () => void
   onVermieten: () => void
 }) {
-  const { cash, renovierungBeschleunigen } = useGame()
+  const { cash, renovierungBeschleunigen, setNutzung } = useGame()
   const p = o.property
   const reno = o.renovierung
   const inArbeit = reno?.status === 'in_arbeit'
@@ -135,13 +138,33 @@ function ObjektKarte({
             </div>
           )}
 
+          {o.nutzung === 'vermietet' && (
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2">
+              <span className="text-sm font-semibold text-emerald-800">🔑 Vermietet</span>
+              <span className="text-sm font-bold tabular-nums text-emerald-700">
+                {euro(o.kaltmiete)}<span className="text-xs font-medium text-emerald-600">/Monat Miete</span>
+              </span>
+            </div>
+          )}
+
           <div className="mt-3 flex flex-wrap gap-2">
             <Button variant="outline" onClick={onRenovieren} disabled={inArbeit}>
               🏗️ Bauträger
             </Button>
-            <Button variant="outline" onClick={onVermieten} disabled={inArbeit}>
-              {o.nutzung === 'vermietet' ? '⏸️ Miete beenden' : '🔑 Vermieten'}
-            </Button>
+            {o.nutzung === 'vermietet' ? (
+              <>
+                <Button variant="outline" onClick={onVermieten} disabled={inArbeit}>
+                  ✏️ Miete ändern
+                </Button>
+                <Button variant="ghost" onClick={() => setNutzung(o.uid, 'leer')} disabled={inArbeit}>
+                  ⏸️ Beenden
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={onVermieten} disabled={inArbeit}>
+                🔑 Vermieten
+              </Button>
+            )}
             <Button variant="success" onClick={onVerkaufen} disabled={inArbeit}>
               💰 Verkaufen
             </Button>

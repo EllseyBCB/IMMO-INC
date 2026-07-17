@@ -77,6 +77,7 @@ export interface GameState {
   renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet, tempo: Bautempo) => void
   renovierungBeschleunigen: (uid: string) => void
   setNutzung: (uid: string, nutzung: Nutzung) => void
+  vermieten: (uid: string, kaltmiete: number) => void
   verkaufen: (uid: string, preis: number) => number
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
@@ -264,6 +265,27 @@ export const useGame = create<GameState>((set, get) => ({
     const s = get()
     const owned = s.owned.map((o) => (o.uid === uid ? { ...o, nutzung } : o))
     set({ owned })
+    persist(get())
+  },
+
+  vermieten: (uid, kaltmiete) => {
+    const s = get()
+    const betrag = Math.max(0, Math.round(kaltmiete))
+    const o = s.owned.find((x) => x.uid === uid)
+    const owned = s.owned.map((x) => (x.uid === uid ? { ...x, nutzung: 'vermietet' as const, kaltmiete: betrag } : x))
+    set({
+      owned,
+      log: o
+        ? [
+            {
+              month: Math.floor(s.monthIndex),
+              text: `Vermietet: ${o.property.titel} für ${betrag.toLocaleString('de-DE')} €/M`,
+              art: 'miete' as const,
+            },
+            ...s.log,
+          ].slice(0, 200)
+        : s.log,
+    })
     persist(get())
   },
 
