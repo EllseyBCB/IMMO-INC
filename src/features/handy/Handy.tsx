@@ -1,99 +1,212 @@
+import { useEffect, useRef, useState } from 'react'
 import { gameDate } from '../../lib/format'
-import { useGame } from '../../state/game'
-
-interface Kontakt {
-  name: string
-  rolle: string
-  emoji: string
-}
-
-const KONTAKTE: Kontakt[] = [
-  { name: 'Sabine Kern', rolle: 'Maklerin — IMMO INC', emoji: '🏘️' },
-  { name: 'Dr. Weber', rolle: 'Kreditberater — Deine Bank', emoji: '🏦' },
-  { name: 'Bauträger Yılmaz', rolle: 'Sanierung & Renovierung', emoji: '🛠️' },
-  { name: 'Hausverwaltung Nord', rolle: 'Verwaltung & Mieter', emoji: '🔑' },
-]
-
-const APPS = [
-  { label: 'Nachrichten', emoji: '✉️', tone: 'from-blue-400 to-blue-600' },
-  { label: 'Kontakte', emoji: '👥', tone: 'from-emerald-400 to-emerald-600' },
-  { label: 'ImmoScout', emoji: '🏠', tone: 'from-orange-400 to-orange-600' },
-  { label: 'Banking', emoji: '💳', tone: 'from-violet-400 to-violet-600' },
-  { label: 'Besichtigung', emoji: '📅', tone: 'from-rose-400 to-rose-600' },
-  { label: 'KI-Studio', emoji: '✨', tone: 'from-fuchsia-400 to-fuchsia-600' },
-]
+import { portfolioWert, useGame } from '../../state/game'
+import { useMessages } from '../../state/messages'
+import { CONTACTS, getContact, type Contact } from './contacts'
+import { frageKontakt, type GameContext } from '../../lib/ai'
 
 export default function Handy() {
-  const { monthIndex } = useGame()
+  const [offen, setOffen] = useState<string | null>(null)
+  const contact = offen ? getContact(offen) : null
 
   return (
     <div>
       <div className="mb-4">
         <h1 className="text-2xl font-black tracking-tight text-ink-900">Dein Handy</h1>
-        <p className="text-sm text-ink-500">Kontakte, Nachrichten und Apps für dein Business</p>
+        <p className="text-sm text-ink-500">Schreib deinen Kontakten — sie antworten dir individuell.</p>
       </div>
 
       <div className="flex justify-center">
-        <div className="w-full max-w-[360px]">
-          {/* Phone frame */}
+        <div className="w-full max-w-[380px]">
           <div className="rounded-[2.5rem] border-[10px] border-ink-900 bg-ink-900 shadow-2xl">
-            <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-b from-slate-50 to-white">
-              {/* Statusbar / notch */}
-              <div className="relative flex items-center justify-between px-6 pt-3 pb-1 text-[11px] font-semibold text-ink-700">
-                <span>{gameDate(monthIndex).split(' ')[0]}</span>
-                <div className="absolute left-1/2 top-2 h-5 w-24 -translate-x-1/2 rounded-full bg-ink-900" />
-                <span>📶 🔋</span>
-              </div>
-
-              {/* App grid */}
-              <div className="px-5 pb-3 pt-4">
-                <div className="grid grid-cols-4 gap-4">
-                  {APPS.map((a) => (
-                    <div key={a.label} className="flex flex-col items-center gap-1">
-                      <div
-                        className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${a.tone} text-2xl shadow-md`}
-                      >
-                        {a.emoji}
-                      </div>
-                      <span className="text-[10px] font-medium text-ink-600">{a.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Messages preview widget */}
-              <div className="mx-4 mb-4 rounded-2xl bg-white/80 p-3 shadow-soft ring-1 ring-black/5 backdrop-blur">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-bold text-ink-700">Kontakte</span>
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
-                    KI-Chat bald
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {KONTAKTE.map((k) => (
-                    <div key={k.name} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-50">
-                      <div className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-lg">{k.emoji}</div>
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold text-ink-900">{k.name}</div>
-                        <div className="text-[11px] text-ink-500">{k.rolle}</div>
-                      </div>
-                      <span className="text-ink-300">›</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="relative h-[640px] overflow-hidden rounded-[2rem] bg-gradient-to-b from-slate-50 to-white">
+              {contact ? (
+                <ChatView contact={contact} onBack={() => setOffen(null)} />
+              ) : (
+                <HomeScreen onOpen={setOffen} />
+              )}
             </div>
           </div>
-
-          <div className="mt-4 rounded-2xl bg-violet-50/60 p-4 text-center">
-            <div className="text-sm font-bold text-violet-700">✨ Nächstes Update</div>
-            <p className="mt-1 text-xs text-violet-700/80">
-              Schreib deinen Kontakten echte Nachrichten — eine KI antwortet individuell und spielrelevant. Inseriere
-              Objekte zur Vermietung, mach Besichtigungen aus und wäge Mieter-Risiken ab. Und im KI-Studio siehst du
-              deine Renovierung als fotorealistisches Vorher/Nachher-Bild.
-            </p>
-          </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function StatusBar() {
+  const monthIndex = useGame((s) => s.monthIndex)
+  return (
+    <div className="relative flex items-center justify-between px-6 pt-3 pb-1 text-[11px] font-semibold text-ink-700">
+      <span>{gameDate(monthIndex).split(' ')[0]}</span>
+      <div className="absolute left-1/2 top-2 h-5 w-24 -translate-x-1/2 rounded-full bg-ink-900" />
+      <span>📶 🔋</span>
+    </div>
+  )
+}
+
+function HomeScreen({ onOpen }: { onOpen: (id: string) => void }) {
+  const threads = useMessages((s) => s.threads)
+
+  return (
+    <div className="flex h-full flex-col">
+      <StatusBar />
+      <div className="px-5 pb-2 pt-3">
+        <h2 className="text-lg font-black text-ink-900">Nachrichten</h2>
+      </div>
+      <div className="no-scrollbar flex-1 overflow-y-auto px-3 pb-4">
+        {CONTACTS.map((c) => {
+          const thread = threads[c.id] ?? []
+          const letzte = thread[thread.length - 1]
+          return (
+            <button
+              key={c.id}
+              onClick={() => onOpen(c.id)}
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-slate-100/70"
+            >
+              <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br ${c.farbe} text-xl shadow-md`}>
+                {c.emoji}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="truncate text-sm font-bold text-ink-900">{c.name}</span>
+                </div>
+                <div className="truncate text-xs text-ink-500">
+                  {letzte ? `${letzte.from === 'player' ? 'Du: ' : ''}${letzte.text}` : c.role}
+                </div>
+              </div>
+              <span className="text-ink-300">›</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="px-5 pb-4">
+        <div className="rounded-2xl bg-violet-50/70 p-3 text-center text-[11px] text-violet-700/80">
+          Tipp: Frag die Bank nach deinem Zins, den Bauträger nach Sanierungen oder die Verwaltung nach Mietern.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ChatView({ contact, onBack }: { contact: Contact; onBack: () => void }) {
+  const { threads, ensureBegruessung, addPlayer, addContact } = useMessages()
+  const game = useGame()
+  const [text, setText] = useState('')
+  const [tippt, setTippt] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const thread = threads[contact.id] ?? []
+
+  useEffect(() => {
+    ensureBegruessung(contact.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contact.id])
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [thread.length, tippt])
+
+  function context(): GameContext {
+    return {
+      spielerName: game.spielerName,
+      monat: gameDate(game.monthIndex),
+      liquiditaet: game.cash,
+      objekte: game.owned.length,
+      portfolioWert: portfolioWert(game.owned),
+    }
+  }
+
+  async function senden(nachricht: string) {
+    const msg = nachricht.trim()
+    if (!msg || tippt) return
+    setText('')
+    addPlayer(contact.id, msg)
+    setTippt(true)
+    const aktuell = [...(threads[contact.id] ?? []), { from: 'player' as const, text: msg, ts: Date.now() }]
+    const res = await frageKontakt(contact, aktuell, msg, context())
+    setTippt(false)
+    addContact(contact.id, res.text)
+  }
+
+  return (
+    <div className="flex h-full flex-col bg-slate-50">
+      <StatusBar />
+      {/* Kontakt-Header */}
+      <div className="flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2 backdrop-blur">
+        <button onClick={onBack} className="rounded-lg px-2 py-1 text-lg text-brand-600" aria-label="Zurück">
+          ‹
+        </button>
+        <div className={`grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br ${contact.farbe} text-base shadow`}>
+          {contact.emoji}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-bold text-ink-900">{contact.name}</div>
+          <div className="truncate text-[11px] text-ink-500">{contact.role}</div>
+        </div>
+      </div>
+
+      {/* Verlauf */}
+      <div ref={scrollRef} className="no-scrollbar flex-1 space-y-2 overflow-y-auto px-3 py-3">
+        {thread.map((m, i) => (
+          <div key={i} className={`flex ${m.from === 'player' ? 'justify-end' : 'justify-start'}`}>
+            <div
+              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-soft ${
+                m.from === 'player'
+                  ? 'rounded-br-md bg-brand-500 text-white'
+                  : 'rounded-bl-md bg-white text-ink-800 ring-1 ring-black/5'
+              }`}
+            >
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {tippt && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl rounded-bl-md bg-white px-3 py-2 text-sm text-ink-400 shadow-soft ring-1 ring-black/5">
+              <span className="inline-flex gap-1">
+                <span className="animate-bounce">•</span>
+                <span className="animate-bounce [animation-delay:0.15s]">•</span>
+                <span className="animate-bounce [animation-delay:0.3s]">•</span>
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Vorschläge */}
+      {thread.length <= 1 && !tippt && (
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-2">
+          {contact.vorschlaege.map((v) => (
+            <button
+              key={v}
+              onClick={() => senden(v)}
+              className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-brand-300 hover:text-brand-700"
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Eingabe */}
+      <div className="flex items-center gap-2 border-t border-slate-200 bg-white px-3 py-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') senden(text)
+          }}
+          placeholder={`Nachricht an ${contact.name.split(' ')[0]}…`}
+          className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-brand-400 focus:bg-white"
+        />
+        <button
+          onClick={() => senden(text)}
+          disabled={!text.trim() || tippt}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-white transition disabled:opacity-40"
+          aria-label="Senden"
+        >
+          ↑
+        </button>
       </div>
     </div>
   )
