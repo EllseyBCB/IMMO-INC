@@ -4,7 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import type { Property } from '../../data/types'
 import { ladeMarkt } from '../../data/openimmo'
 import { berechneFinanzierung, monatlicheRaten, useGame } from '../../state/game'
-import { bonitaet, kaufnebenkosten } from '../../lib/finanzen'
+import { bonitaet, finanzierungsAngebot, kaufnebenkosten } from '../../lib/finanzen'
 import { Badge, Button, Card, Modal, Slider, Stat } from '../../components/ui'
 import { euro, area, pct } from '../../lib/format'
 import { mietrendite, zustandLabel, zustandTone } from './propertyUtil'
@@ -148,6 +148,7 @@ export default function PropertyDetail() {
           p={p}
           cash={cash}
           bonScore={bon}
+          nettoEinkommen={lebenssituation.nettoEinkommen}
           onClose={() => setKaufOffen(false)}
           onConfirm={(fin, mitMakler) => {
             kaufen(p, fin, mitMakler)
@@ -164,12 +165,14 @@ function KaufModal({
   p,
   cash,
   bonScore,
+  nettoEinkommen,
   onClose,
   onConfirm,
 }: {
   p: Property
   cash: number
   bonScore: ReturnType<typeof bonitaet>
+  nettoEinkommen: number
   onClose: () => void
   onConfirm: (fin: ReturnType<typeof berechneFinanzierung>, mitMakler: boolean) => void
 }) {
@@ -178,12 +181,22 @@ function KaufModal({
   const minEigen = Math.min(cash, Math.round(nk.gesamt)) // mind. Nebenkosten aus EK
   const [eigen, setEigen] = useState(Math.min(cash, Math.round(nk.gesamt + p.kaufpreis * 0.1)))
   const [laufzeit, setLaufzeit] = useState(25)
+  const [zinsAufschlag, setZinsAufschlag] = useState(0)
 
-  const fin = berechneFinanzierung(p.kaufpreis, p.bundesland, true, eigen, bonScore.empfohlenerZins, laufzeit)
+  const angebot = finanzierungsAngebot({
+    bon: bonScore,
+    nettoEinkommen,
+    kaufpreis: p.kaufpreis,
+    nebenkosten: nk.gesamt,
+    eigenkapitalEinsatz: eigen,
+    zinsAufschlag,
+    laufzeitJahre: laufzeit,
+  })
+
+  const fin = berechneFinanzierung(p.kaufpreis, p.bundesland, true, eigen, angebot.angebotenerZins, laufzeit)
 
   const zuWenigCash = eigen > cash
-  const darlehenZuHoch = fin.darlehen > bonScore.maxDarlehen
-  const kannKaufen = !zuWenigCash && !darlehenZuHoch && eigen >= minEigen
+  const kannKaufen = angebot.genehmigt && !zuWenigCash && eigen >= minEigen
 
   return (
     <Modal open onClose={onClose} title="Finanzierung & Kauf">
@@ -217,21 +230,67 @@ function KaufModal({
           <Slider value={laufzeit} min={10} max={35} step={1} onChange={setLaufzeit} />
         </div>
 
+        <div>
+          <div className="mb-1 flex items-center justify-between text-sm">
+            <span className="font-medium text-ink-700">Zins-Angebot an die Bank</span>
+            <span className="font-bold tabular-nums text-ink-900">
+              {pct(angebot.angebotenerZins * 100, 2)}
+              {zinsAufschlag > 0 && (
+                <span className="ml-1 text-xs font-semibold text-emerald-600">
+                  (fair {pct(angebot.fairZins * 100, 2)} + {pct(zinsAufschlag * 100, 2)})
+                </span>
+              )}
+            </span>
+          </div>
+          <Slider
+            value={zinsAufschlag}
+            min={0}
+            max={angebot.maxZinsAufschlag}
+            step={0.0025}
+            onChange={setZinsAufschlag}
+          />
+          <div className="mt-1 text-xs text-ink-500">
+            Mehr Zins bieten → die Bank finanziert eher. Mehr Eigenkapital → niedrigerer fairer Zins.
+          </div>
+        </div>
+
+        {/* Finanzierungschance */}
+        <div className="rounded-xl bg-slate-50 p-4">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-sm font-medium text-ink-700">Finanzierungschance</span>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                angebot.genehmigt ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {angebot.genehmigt ? '✓ Genehmigt' : 'Noch nicht genehmigt'}
+            </span>
+          </div>
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                angebot.genehmigt ? 'bg-emerald-500' : 'bg-amber-400'
+              }`}
+              style={{ width: `${Math.round(angebot.chance * 100)}%` }}
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 rounded-xl bg-brand-50/60 p-4">
-          <Stat label="Sollzins (Bonität)" value={pct(bonScore.empfohlenerZins * 100, 2)} />
+          <Stat label="Zinssatz" value={pct(angebot.angebotenerZins * 100, 2)} />
           <Stat label="Monatsrate" value={`${euro(fin.monatsrate)}`} tone="down" />
-          <Stat label="Darlehen" value={euro(fin.darlehen)} />
-          <Stat label="Max. Darlehen" value={euro(bonScore.maxDarlehen)} />
+          <Stat label="Darlehen" value={euro(angebot.darlehen)} />
+          <Stat label="Kreditrahmen" value={euro(angebot.rahmen)} />
         </div>
 
         {zuWenigCash && <Hinweis tone="rose">Dein Eigenkapital-Einsatz übersteigt deine Liquidität.</Hinweis>}
-        {darlehenZuHoch && (
-          <Hinweis tone="rose">
-            Das Darlehen übersteigt deinen Bonitätsrahmen ({euro(bonScore.maxDarlehen)}). Erhöhe den Eigenkapital-Einsatz
-            oder wähle ein günstigeres Objekt.
+        {!angebot.genehmigt && !zuWenigCash && (
+          <Hinweis tone="amber">
+            Die Bank finanziert das noch nicht. <strong>Erhöhe den Zins</strong> (du machst dich als Kreditnehmer
+            attraktiver) oder <strong>bring mehr Eigenkapital</strong> mit — beides hebt deine Finanzierungschance.
           </Hinweis>
         )}
-        {!darlehenZuHoch && eigen < minEigen && (
+        {angebot.genehmigt && eigen < minEigen && (
           <Hinweis tone="amber">Banken finanzieren i. d. R. keine Kaufnebenkosten — bring mindestens {euro(minEigen)} EK mit.</Hinweis>
         )}
 

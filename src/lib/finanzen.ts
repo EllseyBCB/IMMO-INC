@@ -138,6 +138,90 @@ export function bonitaet(params: {
   return { score, maxDarlehen, empfohlenerZins, label }
 }
 
+// --- Finanzierungsangebot: Zins & Eigenkapital steuern die Genehmigung -----
+
+export interface FinanzAngebot {
+  darlehen: number
+  ltv: number
+  fairZins: number
+  angebotenerZins: number
+  rahmen: number // maximal genehmigungsfähiges Darlehen bei diesem Zinsangebot
+  monatsrate: number
+  chance: number // 0..1 – "Finanzierungschance" für die Anzeige
+  genehmigt: boolean
+  maxZinsAufschlag: number
+}
+
+export const MAX_ZINS_AUFSCHLAG = 0.045 // bis +4,5 Prozentpunkte über dem fairen Zins
+
+/**
+ * Bewertet ein Finanzierungsangebot.
+ * - Mehr Eigenkapital (niedrigerer Beleihungsauslauf/LTV) => niedrigerer fairer Zins.
+ * - Höheres Zinsangebot => größere Kreditbereitschaft der Bank => eher genehmigt.
+ * Deterministisch: die "chance" ist eine Anzeige, die man über Zins/EK auf
+ * "genehmigt" hochschiebt – kein Zufall bei der Kreditzusage.
+ */
+export function finanzierungsAngebot(params: {
+  bon: Bonitaet
+  nettoEinkommen: number
+  kaufpreis: number
+  nebenkosten: number
+  eigenkapitalEinsatz: number
+  zinsAufschlag: number
+  laufzeitJahre: number
+}): FinanzAngebot {
+  const { bon, nettoEinkommen, kaufpreis, nebenkosten, eigenkapitalEinsatz, zinsAufschlag, laufzeitJahre } = params
+
+  const darlehen = Math.max(0, Math.round(kaufpreis + nebenkosten - eigenkapitalEinsatz))
+  const ltv = kaufpreis > 0 ? darlehen / kaufpreis : 0
+
+  // Mehr EK (niedriger LTV) => niedrigerer fairer Zins. Über 50 % LTV wird es teurer.
+  const fairZins = Math.min(0.09, Math.max(0.031, bon.empfohlenerZins + Math.max(0, ltv - 0.5) * 0.03))
+
+  const aufschlag = Math.max(0, Math.min(MAX_ZINS_AUFSCHLAG, zinsAufschlag))
+  const angebotenerZins = Math.min(0.095, fairZins + aufschlag)
+
+  // Kreditbereitschaft steigt mit dem Zinsangebot (bis +80 % Rahmen) – der
+  // Aufschlag ist Risikoprämie für die Bank, macht dich also attraktiver.
+  const willingness = 1 + Math.min(1, aufschlag / Math.max(0.001, fairZins)) * 0.8
+  let rahmen = bon.maxDarlehen * willingness
+
+  // Tragbarkeitsdeckel: Monatsrate darf 55 % des Nettoeinkommens nicht übersteigen.
+  // Bewusst am fairen Zins bemessen, damit ein höheres Angebot die Obergrenze
+  // nicht wieder auffrisst (Spielmechanik: mehr Zins => eher genehmigt).
+  const rateCap = nettoEinkommen * 0.55
+  const i = fairZins / 12
+  const n = laufzeitJahre * 12
+  const maxAusRate = i > 0 ? (rateCap * (1 - Math.pow(1 + i, -n))) / i : rateCap * n
+  rahmen = Math.max(0, Math.min(rahmen, maxAusRate, kaufpreis)) // keine >100 %-Finanzierung
+
+  const monatsrate = Math.round(annuitaet(darlehen, angebotenerZins, laufzeitJahre))
+  const genehmigt = darlehen <= rahmen + 1
+
+  // Chance-Meter: Headroom im Rahmen + Eigenkapitalquote.
+  const ekQuote = eigenkapitalEinsatz / Math.max(1, kaufpreis + nebenkosten)
+  let chance: number
+  if (genehmigt) {
+    const headroom = rahmen > 0 ? (rahmen - darlehen) / rahmen : 0
+    chance = 0.6 + Math.min(0.4, headroom * 0.6 + ekQuote * 0.5)
+  } else {
+    const ratio = darlehen > 0 ? rahmen / darlehen : 0
+    chance = Math.min(0.59, Math.max(0, ratio * 0.59))
+  }
+
+  return {
+    darlehen,
+    ltv,
+    fairZins,
+    angebotenerZins,
+    rahmen: Math.round(rahmen),
+    monatsrate,
+    chance: Math.max(0, Math.min(1, chance)),
+    genehmigt,
+    maxZinsAufschlag: MAX_ZINS_AUFSCHLAG,
+  }
+}
+
 // --- Renovierung / Wertermittlung -----------------------------------------
 
 /**

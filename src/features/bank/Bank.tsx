@@ -66,6 +66,13 @@ export default function Bank() {
             Bessere Bonität = niedrigerer Zins und höherer Rahmen. Sie steigt mit Einkommen und Eigenkapital, sinkt mit
             bestehenden Raten.
           </p>
+          <div className="mt-3 rounded-xl bg-brand-50/60 p-3 text-xs text-ink-600">
+            <div className="font-bold text-brand-700">So bekommst du eher eine Zusage</div>
+            <ul className="mt-1 space-y-1">
+              <li>💶 <strong>Mehr Eigenkapital</strong> senkt den Beleihungsauslauf → niedrigerer fairer Zins &amp; leichtere Genehmigung.</li>
+              <li>📈 <strong>Höheres Zins-Angebot</strong> im Kauf-Fenster → die Bank finanziert eher (kostet aber mehr Monatsrate).</li>
+            </ul>
+          </div>
         </Card>
 
         {/* Kreditrechner */}
