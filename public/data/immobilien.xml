@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  IMMO INC — Immobilien-Marktdaten im OpenImmo-2.x-XML-Format.
+  Kuratierter, realistischer Beispiel-Datensatz (echte Städte, marktnahe Preise).
+  Aufgebaut wie ein echter OpenImmo-Export, damit später ein realer Feed andockbar ist.
+-->
+<openimmo>
+  <uebertragung art="OFFLINE" umfang="VOLL" modus="NEW" version="2.0" sendersoftware="IMMO-INC" senderversion="1.0"/>
+  <anbieter>
+    <firma>IMMO INC Marktplatz</firma>
+    <openimmo_anid>immo-inc-markt</openimmo_anid>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>13347</plz><ort>Berlin</ort><regionaler_zusatz>Wedding</regionaler_zusatz><bundesland>Berlin</bundesland><geokoordinaten breitengrad="52.5487" laengengrad="13.3560"/></geo>
+      <preise><kaufpreis>319000</kaufpreis><hausgeld>245</hausgeld><kaltmiete>1050</kaltmiete></preise>
+      <flaechen><wohnflaeche>68</wohnflaeche><anzahl_zimmer>2.5</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1962</baujahr><zustand zustand_art="RENOVIERUNGSBEDUERFTIG"/><energiepass><wertklasse>E</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><heizungsart OFEN="0" ZENTRAL="1"/></ausstattung>
+      <freitexte>
+        <objekttitel>Charmante Altbau-nahe Etagenwohnung im Wedding</objekttitel>
+        <objektbeschreibung>Solide geschnittene 2,5-Zimmer-Wohnung in beliebter Lage. Etwas in die Jahre gekommen, aber mit klarem Aufwertungspotenzial — ideal zum Aufhübschen und Weiterverkaufen oder Vermieten.</objektbeschreibung>
+        <ausstatt_beschr>Balkon, Keller, gute ÖPNV-Anbindung, ruhiger Innenhof</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1568605114967-8130f3a36994</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1522708323590-d24dbb6b0267</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1556911220-bff31c812dba</pfad></daten></anhang>
+        <anhang><anhangtitel>Bad</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1620626011761-996317b8d101</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-001</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">341000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.35</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>04229</plz><ort>Leipzig</ort><regionaler_zusatz>Plagwitz</regionaler_zusatz><bundesland>Sachsen</bundesland><geokoordinaten breitengrad="51.3280" laengengrad="12.3320"/></geo>
+      <preise><kaufpreis>239000</kaufpreis><hausgeld>210</hausgeld><kaltmiete>890</kaltmiete></preise>
+      <flaechen><wohnflaeche>84</wohnflaeche><anzahl_zimmer>3</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1908</baujahr><zustand zustand_art="SANIERUNGSBEDUERFTIG"/><energiepass><wertklasse>G</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><stellplatzart TIEFGARAGE="0"/></ausstattung>
+      <freitexte>
+        <objekttitel>Gründerzeit-Altbau in Plagwitz — Rohdiamant</objekttitel>
+        <objektbeschreibung>Hohe Decken, Stuck, Dielen — dieser Altbau schreit nach Sanierung. Wer Handwerker-Kontakte hat, hebt hier eine ordentliche Marge. Szeneviertel mit stark steigenden Mieten.</objektbeschreibung>
+        <ausstatt_beschr>Stuck, Flügeltüren, Dielenboden, Kellerabteil</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1570129477492-45c003edd2be</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnraum</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1524758631624-e2822e304c36</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1584622650111-993a426fbf0a</pfad></daten></anhang>
+        <anhang><anhangtitel>Bad</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1617806118233-18e1de247200</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-002</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">266000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.46</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>81371</plz><ort>München</ort><regionaler_zusatz>Sendling</regionaler_zusatz><bundesland>Bayern</bundesland><geokoordinaten breitengrad="48.1180" laengengrad="11.5460"/></geo>
+      <preise><kaufpreis>545000</kaufpreis><hausgeld>320</hausgeld><kaltmiete>1450</kaltmiete></preise>
+      <flaechen><wohnflaeche>56</wohnflaeche><anzahl_zimmer>2</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1975</baujahr><zustand zustand_art="GEPFLEGT"/><energiepass><wertklasse>D</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="1"/><stellplatzart TIEFGARAGE="1"/></ausstattung>
+      <freitexte>
+        <objekttitel>Kompakte 2-Zimmer-Wohnung in München-Sendling</objekttitel>
+        <objektbeschreibung>Teuer, aber die Lage trägt. Gepflegter Zustand, kleiner Aufwertungsspielraum. Eher ein Vermiet- als ein Flip-Objekt — München bleibt München.</objektbeschreibung>
+        <ausstatt_beschr>Einbauküche, TG-Stellplatz, Südbalkon</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1512917774080-9991f1c4c750</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1493809842364-78817add7ffb</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600489000022-c2086d79f9d4</pfad></daten></anhang>
+        <anhang><anhangtitel>Bad</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1631679706909-1844bbd07221</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-003</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">560000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.18</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><haus haustyp="REIHENHAUS"/></objektart>
+      </objektkategorie>
+      <geo><plz>22305</plz><ort>Hamburg</ort><regionaler_zusatz>Barmbek</regionaler_zusatz><bundesland>Hamburg</bundesland><geokoordinaten breitengrad="53.5880" laengengrad="10.0430"/></geo>
+      <preise><kaufpreis>489000</kaufpreis><nebenkosten>180</nebenkosten><kaltmiete>1650</kaltmiete></preise>
+      <flaechen><wohnflaeche>118</wohnflaeche><grundstuecksflaeche>220</grundstuecksflaeche><anzahl_zimmer>4</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1968</baujahr><zustand zustand_art="RENOVIERUNGSBEDUERFTIG"/><energiepass><wertklasse>E</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><gaeste_wc/></ausstattung>
+      <freitexte>
+        <objekttitel>Reihenmittelhaus mit Garten in Barmbek</objekttitel>
+        <objektbeschreibung>Familientaugliches Reihenhaus mit kleinem Garten. Die 70er-Jahre-Substanz ist gut, Bäder und Küche sind aber ein Fall für den Bauträger. Nach Sanierung ein starkes Familienobjekt.</objektbeschreibung>
+        <ausstatt_beschr>Garten, Keller, Gäste-WC, Stellplatz</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600585154340-be6161a56a0c</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1502672260266-1c1ef2d93688</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1616137466211-f939a420be84</pfad></daten></anhang>
+        <anhang><anhangtitel>Bad</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600566752355-35792bedcfea</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-004</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">521000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.34</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>50823</plz><ort>Köln</ort><regionaler_zusatz>Ehrenfeld</regionaler_zusatz><bundesland>Nordrhein-Westfalen</bundesland><geokoordinaten breitengrad="50.9520" laengengrad="6.9170"/></geo>
+      <preise><kaufpreis>415000</kaufpreis><hausgeld>260</hausgeld><kaltmiete>1300</kaltmiete></preise>
+      <flaechen><wohnflaeche>92</wohnflaeche><anzahl_zimmer>3</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1994</baujahr><zustand zustand_art="MODERNISIERT"/><energiepass><wertklasse>C</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="1"/><fahrstuhl PERSONEN="1"/></ausstattung>
+      <freitexte>
+        <objekttitel>Modernisierte 3-Zimmer-Wohnung in Ehrenfeld</objekttitel>
+        <objektbeschreibung>Bereits modernisiert, wenig zu tun. Wenig Flip-Marge, dafür ein verlässliches Vermietobjekt in einem der gefragtesten Kölner Viertel.</objektbeschreibung>
+        <ausstatt_beschr>Aufzug, Einbauküche, Balkon, Fußbodenheizung</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600596542815-ffad4c1539a9</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1560185007-cde436f6a4d0</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600210491369-e753d80a41f3</pfad></daten></anhang>
+        <anhang><anhangtitel>Bad</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600121848594-d8644e57abab</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-005</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">420000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.12</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>01099</plz><ort>Dresden</ort><regionaler_zusatz>Äußere Neustadt</regionaler_zusatz><bundesland>Sachsen</bundesland><geokoordinaten breitengrad="51.0700" laengengrad="13.7530"/></geo>
+      <preise><kaufpreis>198000</kaufpreis><hausgeld>195</hausgeld><kaltmiete>780</kaltmiete></preise>
+      <flaechen><wohnflaeche>74</wohnflaeche><anzahl_zimmer>2.5</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1901</baujahr><zustand zustand_art="SANIERUNGSBEDUERFTIG"/><energiepass><wertklasse>G</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/></ausstattung>
+      <freitexte>
+        <objekttitel>Altbau-Perle in der Dresdner Neustadt</objekttitel>
+        <objektbeschreibung>Günstiger Einstieg im Szeneviertel. Unsaniert, aber mit dem höchsten Aufwertungshebel im ganzen Angebot. Etwas für mutige Flipper.</objektbeschreibung>
+        <ausstatt_beschr>Stuck, hohe Decken, Balkon zum Hof</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnraum</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600607687920-4e2a09cf159d</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6</pfad></daten></anhang>
+        <anhang><anhangtitel>Zimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1615529182904-14819c35db37</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-006</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">236000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.50</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>45130</plz><ort>Essen</ort><regionaler_zusatz>Rüttenscheid</regionaler_zusatz><bundesland>Nordrhein-Westfalen</bundesland><geokoordinaten breitengrad="51.4320" laengengrad="7.0040"/></geo>
+      <preise><kaufpreis>219000</kaufpreis><hausgeld>230</hausgeld><kaltmiete>850</kaltmiete></preise>
+      <flaechen><wohnflaeche>88</wohnflaeche><anzahl_zimmer>3</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1980</baujahr><zustand zustand_art="RENOVIERUNGSBEDUERFTIG"/><energiepass><wertklasse>F</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><stellplatzart AUSSEN="1"/></ausstattung>
+      <freitexte>
+        <objekttitel>Geräumige 3-Zimmer-Wohnung in Rüttenscheid</objekttitel>
+        <objektbeschreibung>Solides Ruhrgebiets-Objekt mit gutem Preis pro Quadratmeter. Renovierungsbedürftig, aber die Substanz stimmt. Guter Cashflow als Vermietung.</objektbeschreibung>
+        <ausstatt_beschr>Loggia, Stellplatz, Kellerabteil</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600607687939-ce8a6c25118c</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnbereich</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1616486338812-3dadae4b4ace</pfad></daten></anhang>
+        <anhang><anhangtitel>Zimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1586023492125-27b2c045efd7</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-007</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">245000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.38</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="DACHGESCHOSS"/></objektart>
+      </objektkategorie>
+      <geo><plz>90429</plz><ort>Nürnberg</ort><regionaler_zusatz>Gostenhof</regionaler_zusatz><bundesland>Bayern</bundesland><geokoordinaten breitengrad="49.4520" laengengrad="11.0530"/></geo>
+      <preise><kaufpreis>289000</kaufpreis><hausgeld>210</hausgeld><kaltmiete>1050</kaltmiete></preise>
+      <flaechen><wohnflaeche>96</wohnflaeche><anzahl_zimmer>3</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1955</baujahr><zustand zustand_art="RENOVIERUNGSBEDUERFTIG"/><energiepass><wertklasse>E</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><dachboden/></ausstattung>
+      <freitexte>
+        <objekttitel>Dachgeschoss mit Ausbaupotenzial in Gostenhof</objekttitel>
+        <objektbeschreibung>Charmantes DG im aufstrebenden Gostenhof. Schrägen clever nutzen, Grundriss öffnen — hier lässt sich mit dem richtigen Konzept Wert heben.</objektbeschreibung>
+        <ausstatt_beschr>Dachterrasse möglich, Speicher, ruhige Lage</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1616594039964-ae9021a400a0</pfad></daten></anhang>
+        <anhang><anhangtitel>Schlafzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1505691938895-1758d7feb511</pfad></daten></anhang>
+        <anhang><anhangtitel>Zimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-008</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">315000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.40</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>60385</plz><ort>Frankfurt am Main</ort><regionaler_zusatz>Bornheim</regionaler_zusatz><bundesland>Hessen</bundesland><geokoordinaten breitengrad="50.1300" laengengrad="8.7100"/></geo>
+      <preise><kaufpreis>379000</kaufpreis><hausgeld>280</hausgeld><kaltmiete>1180</kaltmiete></preise>
+      <flaechen><wohnflaeche>61</wohnflaeche><anzahl_zimmer>2</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1988</baujahr><zustand zustand_art="GEPFLEGT"/><energiepass><wertklasse>D</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="1"/></ausstattung>
+      <freitexte>
+        <objekttitel>Gepflegte 2-Zimmer-Wohnung in Bornheim</objekttitel>
+        <objektbeschreibung>Bornheim ist gefragt und teuer. Gepflegter Zustand, moderater Aufwertungsspielraum. Eher ruhiger Vermögensaufbau als schneller Flip.</objektbeschreibung>
+        <ausstatt_beschr>Einbauküche, Balkon, Keller</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1580587771525-78b9dba3b914</pfad></daten></anhang>
+        <anhang><anhangtitel>Schlafzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af</pfad></daten></anhang>
+        <anhang><anhangtitel>Zimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1513694203232-719a280e022f</pfad></daten></anhang>
+        <anhang><anhangtitel>Bad</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600121848594-d8644e57abab</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-009</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">385000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.17</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><haus haustyp="EINFAMILIENHAUS"/></objektart>
+      </objektkategorie>
+      <geo><plz>70372</plz><ort>Stuttgart</ort><regionaler_zusatz>Bad Cannstatt</regionaler_zusatz><bundesland>Baden-Württemberg</bundesland><geokoordinaten breitengrad="48.8060" laengengrad="9.2200"/></geo>
+      <preise><kaufpreis>565000</kaufpreis><nebenkosten>210</nebenkosten><kaltmiete>1750</kaltmiete></preise>
+      <flaechen><wohnflaeche>142</wohnflaeche><grundstuecksflaeche>340</grundstuecksflaeche><anzahl_zimmer>5</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1972</baujahr><zustand zustand_art="SANIERUNGSBEDUERFTIG"/><energiepass><wertklasse>F</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><kamin/><gaeste_wc/></ausstattung>
+      <freitexte>
+        <objekttitel>Freistehendes Haus mit Garten in Bad Cannstatt</objekttitel>
+        <objektbeschreibung>Großes Einfamilienhaus mit viel Platz und Garten. Energetisch veraltet — ideal für eine umfassende Sanierung mit Fokus auf Energieklasse. Danach ein Premium-Familienobjekt.</objektbeschreibung>
+        <ausstatt_beschr>Garten, Kamin, Garage, Keller, Gäste-WC</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1564013799919-ab600027ffc6</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1533779283484-8ad4940aa3a8</pfad></daten></anhang>
+        <anhang><anhangtitel>Schlafzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1598928506311-c55ded91a20c</pfad></daten></anhang>
+        <anhang><anhangtitel>Zimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1552321554-5fefe8c9ef14</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-010</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">620000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.42</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><haus haustyp="REIHENHAUS"/></objektart>
+      </objektkategorie>
+      <geo><plz>28215</plz><ort>Bremen</ort><regionaler_zusatz>Findorff</regionaler_zusatz><bundesland>Bremen</bundesland><geokoordinaten breitengrad="53.0930" laengengrad="8.7960"/></geo>
+      <preise><kaufpreis>335000</kaufpreis><nebenkosten>170</nebenkosten><kaltmiete>1200</kaltmiete></preise>
+      <flaechen><wohnflaeche>110</wohnflaeche><grundstuecksflaeche>180</grundstuecksflaeche><anzahl_zimmer>4</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1963</baujahr><zustand zustand_art="RENOVIERUNGSBEDUERFTIG"/><energiepass><wertklasse>E</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="0"/><gaeste_wc/></ausstattung>
+      <freitexte>
+        <objekttitel>Bremer Reihenhaus in beliebtem Findorff</objekttitel>
+        <objektbeschreibung>Klassisches Reihenhaus in ruhiger, familienfreundlicher Lage. Küche und Böden sind in die Jahre gekommen. Nach einem Auffrischen ein sehr gut vermietbares oder verkäufliches Objekt.</objektbeschreibung>
+        <ausstatt_beschr>Garten, Keller, Gäste-WC, Fahrradraum</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1502005097973-6a7082348e28</pfad></daten></anhang>
+        <anhang><anhangtitel>Zimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1484154218962-a197022b5858</pfad></daten></anhang>
+        <anhang><anhangtitel>Küche</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600210491369-e753d80a41f3</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-011</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">360000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.36</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+    <immobilie>
+      <objektkategorie>
+        <nutzungsart WOHNEN="1"/>
+        <vermarktungsart KAUF="1"/>
+        <objektart><wohnung wohnungtyp="ETAGE"/></objektart>
+      </objektkategorie>
+      <geo><plz>44139</plz><ort>Dortmund</ort><regionaler_zusatz>Kreuzviertel</regionaler_zusatz><bundesland>Nordrhein-Westfalen</bundesland><geokoordinaten breitengrad="51.5010" laengengrad="7.4560"/></geo>
+      <preise><kaufpreis>259000</kaufpreis><hausgeld>240</hausgeld><kaltmiete>950</kaltmiete></preise>
+      <flaechen><wohnflaeche>90</wohnflaeche><anzahl_zimmer>3</anzahl_zimmer></flaechen>
+      <zustand_angaben><baujahr>1998</baujahr><zustand zustand_art="MODERNISIERT"/><energiepass><wertklasse>C</wertklasse></energiepass></zustand_angaben>
+      <ausstattung><kueche EBK="1"/><stellplatzart TIEFGARAGE="1"/></ausstattung>
+      <freitexte>
+        <objekttitel>Gepflegte Wohnung im Dortmunder Kreuzviertel</objekttitel>
+        <objektbeschreibung>Beliebtes Viertel, gepflegter Zustand, faire Bewertung. Wenig Flip-Hebel, dafür ein grundsolides Einstiegsobjekt für den ersten Cashflow.</objektbeschreibung>
+        <ausstatt_beschr>Einbauküche, TG-Stellplatz, Balkon</ausstatt_beschr>
+      </freitexte>
+      <anhaenge>
+        <anhang><anhangtitel>Titelbild</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1554995207-c18c203602cb</pfad></daten></anhang>
+        <anhang><anhangtitel>Außenansicht</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1449844908441-8829872d2607</pfad></daten></anhang>
+        <anhang><anhangtitel>Wohnzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1600607687920-4e2a09cf159d</pfad></daten></anhang>
+        <anhang><anhangtitel>Schlafzimmer</anhangtitel><daten><pfad>https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af</pfad></daten></anhang>
+      </anhaenge>
+      <verwaltung_techn>
+        <objektnr_intern>IM-012</objektnr_intern>
+        <user_defined_simplefield feldname="marktwert">264000</user_defined_simplefield>
+        <user_defined_simplefield feldname="sanierungspotenzial">0.12</user_defined_simplefield>
+      </verwaltung_techn>
+    </immobilie>
+
+  </anbieter>
+</openimmo>
