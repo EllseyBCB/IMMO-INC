@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { OwnedProperty } from '../../state/game'
 import { useGame } from '../../state/game'
-import type { Qualitaet, RenovationScope } from '../../data/types'
-import { QUALITAET_FAKTOR, RENOVATION_KATALOG, berechneRenovierung } from '../../data/renovation'
+import type { Qualitaet, RenovationScope, Bautempo } from '../../data/types'
+import { BAUTEMPO, QUALITAET_FAKTOR, RENOVATION_KATALOG, berechneRenovierung } from '../../data/renovation'
 import { Button, Modal, Stat } from '../../components/ui'
 import { euro } from '../../lib/format'
 
@@ -10,10 +10,12 @@ export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onCl
   const { cash, renovieren } = useGame()
   const [scopes, setScopes] = useState<RenovationScope[]>([])
   const [qualitaet, setQualitaet] = useState<Qualitaet>('gehoben')
+  const [tempo, setTempo] = useState<Bautempo>('standard')
 
   const r = berechneRenovierung(
     scopes,
     qualitaet,
+    tempo,
     o.property.wohnflaeche,
     o.property.marktwert,
     o.property.sanierungspotenzial,
@@ -21,6 +23,8 @@ export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onCl
   const zuTeuer = r.kosten > cash
   const nichtsGewaehlt = scopes.length === 0
   const roi = r.kosten > 0 ? ((r.wertsteigerung - r.kosten) / r.kosten) * 100 : 0
+  // Tragekosten während der Bauzeit: Kreditrate + Hausgeld, ohne Miete/Verkauf.
+  const tragekosten = r.bauzeit * (o.finanzierung.monatsrate + o.property.hausgeldOderNebenkosten)
 
   function toggle(scope: RenovationScope) {
     setScopes((s) => (s.includes(scope) ? s.filter((x) => x !== scope) : [...s, scope]))
@@ -39,6 +43,7 @@ export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onCl
           const einzel = berechneRenovierung(
             [item.scope],
             qualitaet,
+            tempo,
             o.property.wohnflaeche,
             o.property.marktwert,
             o.property.sanierungspotenzial,
@@ -88,13 +93,50 @@ export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onCl
         </div>
       </div>
 
-      {!nichtsGewaehlt && (
-        <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
-          <Stat label="Kosten" value={euro(r.kosten)} tone="down" />
-          <Stat label="Wertsteigerung" value={euro(r.wertsteigerung)} tone="up" />
-          <Stat label="Bauzeit" value={`${r.bauzeit} Monate`} />
-          <Stat label="Marge nach Kosten" value={`${roi >= 0 ? '+' : ''}${roi.toFixed(0)} %`} tone={roi >= 0 ? 'up' : 'down'} />
+      <div className="mt-4">
+        <div className="mb-1 text-sm font-medium text-ink-700">Bautempo — Zeit gegen Geld</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {(Object.keys(BAUTEMPO) as Bautempo[]).map((tp) => {
+            const info = BAUTEMPO[tp]
+            const aktiv = tempo === tp
+            return (
+              <button
+                key={tp}
+                onClick={() => setTempo(tp)}
+                title={info.beschreibung}
+                className={`rounded-xl border px-2 py-2 text-center transition ${
+                  aktiv ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-slate-200 text-ink-700 hover:border-slate-300'
+                }`}
+              >
+                <div className="text-lg leading-none">{info.emoji}</div>
+                <div className="mt-1 text-xs font-bold">{info.label}</div>
+                <div className="text-[10px] text-ink-500">
+                  {info.zeitFaktor < 1 ? `${Math.round((1 - info.zeitFaktor) * 100)}% schneller` : info.zeitFaktor > 1 ? `${Math.round((info.zeitFaktor - 1) * 100)}% länger` : 'Normaltempo'}
+                </div>
+              </button>
+            )
+          })}
         </div>
+        <p className="mt-1.5 text-xs text-ink-500">{BAUTEMPO[tempo].beschreibung}</p>
+      </div>
+
+      {!nichtsGewaehlt && (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
+            <Stat label="Kosten" value={euro(r.kosten)} tone="down" />
+            <Stat label="Wertsteigerung" value={euro(r.wertsteigerung)} tone="up" />
+            <Stat label="Bauzeit" value={`${r.bauzeit} ${r.bauzeit === 1 ? 'Monat' : 'Monate'}`} />
+            <Stat label="Marge nach Kosten" value={`${roi >= 0 ? '+' : ''}${roi.toFixed(0)} %`} tone={roi >= 0 ? 'up' : 'down'} />
+          </div>
+          <div className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+            <span>⏳</span>
+            <span>
+              Während der Bauzeit läuft alles weiter: Rate + Hausgeld ≈{' '}
+              <strong>{euro(tragekosten)}</strong> Tragekosten — und du kannst das Objekt weder verkaufen noch vermieten.
+              Langsam bauen ist billiger, kostet dich aber Zeit und Liquidität.
+            </span>
+          </div>
+        </>
       )}
 
       {!nichtsGewaehlt && (
@@ -126,7 +168,7 @@ export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onCl
           className="flex-1"
           disabled={nichtsGewaehlt || zuTeuer}
           onClick={() => {
-            renovieren(o.uid, scopes, qualitaet)
+            renovieren(o.uid, scopes, qualitaet, tempo)
             onClose()
           }}
         >

@@ -47,3 +47,5 @@ export type RenovationScope =
   | 'smarthome'
 
 export type Qualitaet = 'standard' | 'gehoben' | 'luxus'
+
+export type Bautempo = 'spar' | 'standard' | 'express' | 'turbo'

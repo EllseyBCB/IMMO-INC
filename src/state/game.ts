@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Property, Qualitaet, RenovationScope } from '../data/types'
+import type { Property, Qualitaet, RenovationScope, Bautempo } from '../data/types'
 import {
   annuitaet,
   kaufnebenkosten,
@@ -20,6 +20,7 @@ export interface Finanzierung {
 export interface RenovationState {
   scopes: RenovationScope[]
   qualitaet: Qualitaet
+  tempo: Bautempo
   kosten: number
   wertsteigerung: number
   startMonth: number
@@ -72,7 +73,7 @@ export interface GameState {
   neuesSpiel: (l: Lebenssituation, startkapital: number) => void
   reset: () => void
   kaufen: (property: Property, finanzierung: Finanzierung, mitMakler: boolean) => void
-  renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet) => void
+  renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet, tempo: Bautempo) => void
   setNutzung: (uid: string, nutzung: Nutzung) => void
   verkaufen: (uid: string, preis: number) => number
   naechsterMonat: () => void
@@ -206,7 +207,7 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
-  renovieren: (uid, scopes, qualitaet) => {
+  renovieren: (uid, scopes, qualitaet, tempo) => {
     const s = get()
     const idx = s.owned.findIndex((o) => o.uid === uid)
     if (idx < 0) return
@@ -214,6 +215,7 @@ export const useGame = create<GameState>((set, get) => ({
     const r = berechneRenovierung(
       scopes,
       qualitaet,
+      tempo,
       o.property.wohnflaeche,
       o.property.marktwert,
       o.property.sanierungspotenzial,
@@ -223,6 +225,7 @@ export const useGame = create<GameState>((set, get) => ({
     const renovierung: RenovationState = {
       scopes,
       qualitaet,
+      tempo,
       kosten: r.kosten,
       wertsteigerung: r.wertsteigerung,
       startMonth: s.monthIndex,
