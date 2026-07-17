@@ -9,6 +9,7 @@ import {
 } from '../../state/game'
 import { Button, Card, Modal, Stat } from '../../components/ui'
 import { euro, gameDate } from '../../lib/format'
+import { lebensstandard, sonderausgabenMonat } from '../../data/lifestyle'
 
 const ART_STYLE: Record<string, { icon: string; tone: string }> = {
   kauf: { icon: '🏠', tone: 'text-ink-700' },
@@ -21,7 +22,7 @@ const ART_STYLE: Record<string, { icon: string; tone: string }> = {
 }
 
 export default function Finanzen() {
-  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, reset } = useGame()
+  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, reset } = useGame()
   const [resetOffen, setResetOffen] = useState(false)
 
   const wert = portfolioWert(owned)
@@ -33,7 +34,9 @@ export default function Finanzen() {
     .filter((o) => o.nutzung !== 'vermietet')
     .reduce((s, o) => s + o.property.hausgeldOderNebenkosten, 0)
   const privat = lebenssituation.nettoEinkommen - lebenssituation.fixkosten
-  const cashflow = privat + miete - raten - hausgeld
+  const sonder = sonderausgabenMonat(vermoegen, gekaufteLuxus)
+  const ls = lebensstandard(vermoegen, gekaufteLuxus)
+  const cashflow = privat + miete - raten - hausgeld - sonder
   const wachstum = startEigenkapital > 0 ? ((vermoegen - startEigenkapital) / startEigenkapital) * 100 : 0
 
   return (
@@ -78,6 +81,7 @@ export default function Finanzen() {
           <CashflowZeile label="Mieteinnahmen" value={miete} />
           <CashflowZeile label="Kreditraten" value={-raten} />
           <CashflowZeile label="Hausgeld / Nebenkosten (leerstehend)" value={-hausgeld} />
+          <CashflowZeile label={`Sonderausgaben (${ls.stufe.name})`} value={-sonder} />
           <div className="my-2 border-t border-slate-100" />
           <div className="flex items-center justify-between">
             <span className="font-bold text-ink-900">Summe / Monat</span>

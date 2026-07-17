@@ -9,6 +9,7 @@ import { frageKontakt, type GameContext } from '../../lib/ai'
 import VermietungApp from './VermietungApp'
 import BautraegerApp from './BautraegerApp'
 import BankingApp from './BankingApp'
+import ShopApp from './ShopApp'
 
 export default function Handy() {
   const [offen, setOffen] = useState<string | null>(null)
@@ -34,6 +35,8 @@ export default function Handy() {
                 <BautraegerApp onClose={() => setAppOffen(null)} />
               ) : appOffen === 'banking' ? (
                 <BankingApp onClose={() => setAppOffen(null)} />
+              ) : appOffen === 'shop' ? (
+                <ShopApp onClose={() => setAppOffen(null)} />
               ) : (
                 <HomeScreen onOpen={setOffen} onOpenApp={setAppOffen} />
               )}
@@ -76,10 +79,11 @@ function HomeScreen({ onOpen, onOpenApp }: { onOpen: (id: string) => void; onOpe
       <StatusBar />
 
       {/* App-Kacheln */}
-      <div className="grid grid-cols-3 gap-2 px-4 pb-1 pt-2">
+      <div className="grid grid-cols-4 gap-2 px-4 pb-1 pt-2">
         <AppKachel emoji="🔑" label="Vermietung" farbe="from-emerald-400 to-emerald-600" onClick={() => onOpenApp('vermietung')} />
         <AppKachel emoji="🏗️" label="Bauträger" farbe="from-orange-400 to-orange-600" onClick={() => onOpenApp('bautraeger')} />
         <AppKachel emoji="🏦" label="Banking" farbe="from-brand-500 to-brand-700" onClick={() => onOpenApp('banking')} />
+        <AppKachel emoji="🛍️" label="Shop" farbe="from-violet-500 to-fuchsia-600" onClick={() => onOpenApp('shop')} />
       </div>
 
       <div className="px-5 pb-2 pt-3">

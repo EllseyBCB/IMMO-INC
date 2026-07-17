@@ -3,6 +3,7 @@ import type { Property, Qualitaet, RenovationScope, Bautempo } from '../data/typ
 import { annuitaet, kaufnebenkosten, spekulationssteuer, verkaufsnebenkosten } from '../lib/finanzen'
 import { berechneRenovierung } from '../data/renovation'
 import type { Risiko } from '../data/mieter'
+import { LUXUS_KATALOG, sonderausgabenMonat } from '../data/lifestyle'
 
 // Echtzeit-Modell (Clash-Royale-Stil): Zeit läuft real, nicht per Klick.
 export const MS_PRO_MONAT = 4 * 60 * 60 * 1000 // 1 Spiel-Monat = 4 Echt-Stunden
@@ -73,6 +74,7 @@ export interface GameState {
   lastTick: number // Echtzeit-Stempel des letzten Ticks (ms)
   owned: OwnedProperty[]
   verkauft: string[] // property ids die vom Markt verschwinden
+  gekaufteLuxus: string[] // ids gekaufter Lifestyle-Artikel
   log: LogEintrag[]
 
   neuesSpiel: (l: Lebenssituation, startkapital: number) => void
@@ -92,6 +94,8 @@ export interface GameState {
   setNutzung: (uid: string, nutzung: Nutzung) => void
   vermieten: (uid: string, kaltmiete: number, mieter?: { name: string; risiko: Risiko }) => void
   verkaufen: (uid: string, preis: number) => number
+  /** Kauft einen Lifestyle-Artikel (verbessert den Lebensstandard). */
+  luxusKaufen: (id: string) => void
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
   /** Springt exakt einen Monat vor (als wären die 4 Echt-Stunden vergangen). */
@@ -113,6 +117,7 @@ function persist(state: GameState) {
       lastTick: state.lastTick,
       owned: state.owned,
       verkauft: state.verkauft,
+      gekaufteLuxus: state.gekaufteLuxus,
       log: state.log,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
@@ -151,6 +156,7 @@ export const useGame = create<GameState>((set, get) => ({
   lastTick: 0,
   owned: [],
   verkauft: [],
+  gekaufteLuxus: [],
   log: [],
 
   neuesSpiel: (l, startkapital) => {
@@ -164,6 +170,7 @@ export const useGame = create<GameState>((set, get) => ({
       lastTick: Date.now(),
       owned: [],
       verkauft: [],
+      gekaufteLuxus: [],
       log: [
         {
           month: 0,
@@ -189,6 +196,7 @@ export const useGame = create<GameState>((set, get) => ({
       lastTick: 0,
       owned: [],
       verkauft: [],
+      gekaufteLuxus: [],
       log: [],
     })
   },
@@ -343,6 +351,28 @@ export const useGame = create<GameState>((set, get) => ({
     return nettoCash
   },
 
+  luxusKaufen: (id) => {
+    const s = get()
+    const item = LUXUS_KATALOG.find((i) => i.id === id)
+    if (!item) return
+    if (s.gekaufteLuxus.includes(id)) return
+    if (item.preis > s.cash) return
+    set({
+      cash: s.cash - item.preis,
+      gekaufteLuxus: [...s.gekaufteLuxus, id],
+      log: [
+        {
+          month: Math.floor(s.monthIndex),
+          text: `${item.emoji} Gekauft: ${item.name} — Lebensstandard verbessert`,
+          betrag: -item.preis,
+          art: 'kosten' as const,
+        },
+        ...s.log,
+      ].slice(0, 200),
+    })
+    persist(get())
+  },
+
   renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger) => {
     const s = get()
     const idx = s.owned.findIndex((o) => o.uid === uid)
@@ -467,6 +497,10 @@ export const useGame = create<GameState>((set, get) => ({
 
     // private Lebenshaltung
     cash += (s.lebenssituation.nettoEinkommen - s.lebenssituation.fixkosten) * elapsed
+
+    // Sonderausgaben: wachsen mit dem Vermögen + Unterhalt des Lebensstandards
+    const vermoegenVorher = nettoVermoegen(s.cash, s.owned)
+    cash -= sonderausgabenMonat(vermoegenVorher, s.gekaufteLuxus) * elapsed
 
     set({
       monthIndex: monthNach,

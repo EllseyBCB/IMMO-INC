@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import {
-  monatlicheMiete,
-  monatlicheRaten,
   nettoVermoegen,
   portfolioWert,
   schulden,
   useGame,
   type OwnedProperty,
 } from '../../state/game'
-import { euro, euroShort, gameDate, pct } from '../../lib/format'
+import { lebensstandard, sonderausgabenMonat } from '../../data/lifestyle'
+import { euro, euroShort, gameDate, gameDatum, pct } from '../../lib/format'
 
 const ART: Record<string, string> = {
   kauf: '🏠',
@@ -57,7 +56,7 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
         )}
         <span className="grid h-6 w-6 place-items-center rounded-md bg-white/20 text-xs font-black">II</span>
         <span className="text-sm font-bold">IMMO&nbsp;INC Bank</span>
-        <span className="ml-auto text-[10px] text-white/70">{gameDate(monthIndex)}</span>
+        <span className="ml-auto text-[10px] text-white/70">{gameDatum(monthIndex)}</span>
       </div>
 
       {view === 'uebersicht' && (
@@ -138,13 +137,51 @@ function KontoZeile({
   )
 }
 
+interface Posten {
+  label: string
+  sub: string
+  v: number
+}
+
 function PrivatKonto() {
-  const { cash, owned, log, lebenssituation } = useGame()
+  const { cash, owned, log, lebenssituation, gekaufteLuxus } = useGame()
   const netto = lebenssituation.nettoEinkommen
   const fix = lebenssituation.fixkosten
-  const miete = monatlicheMiete(owned)
-  const raten = monatlicheRaten(owned)
-  const hausgeld = owned.filter((o) => o.nutzung !== 'vermietet').reduce((s, o) => s + o.property.hausgeldOderNebenkosten, 0)
+  const vermoegen = nettoVermoegen(cash, owned)
+  const sonder = sonderausgabenMonat(vermoegen, gekaufteLuxus)
+  const ls = lebensstandard(vermoegen, gekaufteLuxus)
+
+  const vermietet = owned.filter((o) => o.nutzung === 'vermietet' && o.kaltmiete > 0)
+  const mitKredit = owned.filter((o) => o.restschuld > 0 && o.finanzierung.monatsrate > 0)
+  const mitHausgeld = owned.filter((o) => o.nutzung !== 'vermietet' && o.property.hausgeldOderNebenkosten > 0)
+
+  const einnahmen: Posten[] = [
+    { label: 'Gehaltseingang', sub: 'Arbeitgeber · monatlich', v: netto },
+    ...vermietet.map((o) => ({
+      label: `Miete · ${o.property.titel}`,
+      sub: o.mieterName ? `${o.mieterName} · Kaltmiete` : 'Mieteingang',
+      v: o.kaltmiete,
+    })),
+  ]
+
+  const ausgaben: Posten[] = [
+    { label: 'Lebenshaltung', sub: 'Dauerauftrag · privat', v: fix },
+    ...mitKredit.map((o) => ({
+      label: `Kreditrate · ${o.property.titel}`,
+      sub: 'IMMO INC Bank · Annuität',
+      v: o.finanzierung.monatsrate,
+    })),
+    ...mitHausgeld.map((o) => ({
+      label: `Hausgeld · ${o.property.titel}`,
+      sub: 'Hausverwaltung',
+      v: o.property.hausgeldOderNebenkosten,
+    })),
+    ...(sonder > 0 ? [{ label: 'Sonderausgaben', sub: `${ls.stufe.name} · Lebensstandard`, v: sonder }] : []),
+  ]
+
+  const einSumme = einnahmen.reduce((s, e) => s + e.v, 0)
+  const ausSumme = ausgaben.reduce((s, e) => s + e.v, 0)
+  const saldo = einSumme - ausSumme
 
   return (
     <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
@@ -154,23 +191,53 @@ function PrivatKonto() {
         <div className="mt-2 text-[11px] text-white/70">{iban('privat')}</div>
       </div>
 
+      {/* Monatliche Einnahmen — vollständig aufgeschlüsselt */}
       <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
-        <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Daueraufträge / wiederkehrend</div>
-        <div className="mt-2 space-y-1.5 text-sm">
-          <Zeile label="Gehaltseingang" v={netto} />
-          <Zeile label="Lebenshaltung (privat)" v={-fix} />
-          {miete > 0 && <Zeile label="Mieteingänge" v={miete} />}
-          {raten > 0 && <Zeile label="Kreditraten (Immobilien)" v={-raten} />}
-          {hausgeld > 0 && <Zeile label="Hausgeld / Nebenkosten" v={-hausgeld} />}
-          <div className="my-1 border-t border-slate-100" />
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-ink-900">Saldo / Monat</span>
-            <SaldoText v={netto - fix + miete - raten - hausgeld} bold />
-          </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wide text-ink-500">Einnahmen / Monat</span>
+          <span className="text-sm font-black tabular-nums text-emerald-600">+ {euro(einSumme)}</span>
+        </div>
+        <div className="mt-2 divide-y divide-slate-50">
+          {einnahmen.map((p, i) => (
+            <PostenZeile key={i} p={p} positiv />
+          ))}
         </div>
       </div>
 
+      {/* Monatliche Ausgaben — vollständig aufgeschlüsselt */}
+      <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wide text-ink-500">Ausgaben / Monat</span>
+          <span className="text-sm font-black tabular-nums text-rose-600">− {euro(ausSumme)}</span>
+        </div>
+        <div className="mt-2 divide-y divide-slate-50">
+          {ausgaben.map((p, i) => (
+            <PostenZeile key={i} p={p} />
+          ))}
+        </div>
+      </div>
+
+      {/* Monats-Saldo */}
+      <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+        <span className="text-sm font-bold text-ink-900">Saldo / Monat</span>
+        <SaldoText v={saldo} bold />
+      </div>
+
       <Umsaetze log={log} />
+    </div>
+  )
+}
+
+function PostenZeile({ p, positiv }: { p: Posten; positiv?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-2">
+      <span className="min-w-0">
+        <span className="block truncate text-sm text-ink-800">{p.label}</span>
+        <span className="block truncate text-[10px] text-ink-400">{p.sub}</span>
+      </span>
+      <span className={`shrink-0 text-sm font-semibold tabular-nums ${positiv ? 'text-emerald-600' : 'text-rose-600'}`}>
+        {positiv ? '+' : '−'} {euro(p.v)}
+      </span>
     </div>
   )
 }
@@ -238,15 +305,6 @@ function Umsaetze({ log }: { log: { month: number; text: string; betrag?: number
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function Zeile({ label, v }: { label: string; v: number }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-ink-600">{label}</span>
-      <SaldoText v={v} />
     </div>
   )
 }
