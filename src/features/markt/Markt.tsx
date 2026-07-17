@@ -2,19 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Property } from '../../data/types'
 import { ladeMarkt } from '../../data/openimmo'
 import { useGame } from '../../state/game'
+import { useCustomListings } from '../../state/customListings'
 import PropertyCard from './PropertyCard'
+import ImportModal from './ImportModal'
 import { euro } from '../../lib/format'
 
 type Sort = 'preis-auf' | 'preis-ab' | 'rendite' | 'potenzial'
 
 export default function Markt() {
   const verkauft = useGame((s) => s.verkauft)
+  const custom = useCustomListings((s) => s.objekte)
   const [alle, setAlle] = useState<Property[] | null>(null)
   const [fehler, setFehler] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [stadt, setStadt] = useState('alle')
-  const [maxPreis, setMaxPreis] = useState(700000)
+  const [maxPreis, setMaxPreis] = useState(2000000)
   const [sort, setSort] = useState<Sort>('potenzial')
+  const [importOffen, setImportOffen] = useState(false)
 
   useEffect(() => {
     ladeMarkt()
@@ -22,14 +26,20 @@ export default function Markt() {
       .catch((e) => setFehler(String(e.message ?? e)))
   }, [])
 
+  // Eigene importierte Inserate zuerst, dann der kuratierte Feed.
+  const alleObjekte = useMemo<Property[] | null>(
+    () => (alle ? [...custom, ...alle] : custom.length ? custom : null),
+    [alle, custom],
+  )
+
   const staedte = useMemo(() => {
-    if (!alle) return []
-    return Array.from(new Set(alle.map((p) => p.stadt))).sort()
-  }, [alle])
+    if (!alleObjekte) return []
+    return Array.from(new Set(alleObjekte.map((p) => p.stadt))).sort()
+  }, [alleObjekte])
 
   const gefiltert = useMemo(() => {
-    if (!alle) return []
-    let list = alle.filter((p) => !verkauft.includes(p.id))
+    if (!alleObjekte) return []
+    let list = alleObjekte.filter((p) => !verkauft.includes(p.id))
     if (q.trim()) {
       const s = q.toLowerCase()
       list = list.filter(
@@ -58,7 +68,7 @@ export default function Markt() {
         break
     }
     return sorted
-  }, [alle, verkauft, q, stadt, maxPreis, sort])
+  }, [alleObjekte, verkauft, q, stadt, maxPreis, sort])
 
   if (fehler) {
     return (
@@ -70,11 +80,20 @@ export default function Markt() {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-black tracking-tight text-ink-900">Immobilienmarkt</h1>
-        <p className="text-sm text-ink-500">
-          {alle ? `${gefiltert.length} von ${alle.length} Objekten` : 'Lädt…'} · Live aus dem OpenImmo-Feed
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-ink-900">Immobilienmarkt</h1>
+          <p className="text-sm text-ink-500">
+            {alleObjekte ? `${gefiltert.length} von ${alleObjekte.length} Objekten` : 'Lädt…'} · OpenImmo-Feed
+            {custom.length > 0 ? ` + ${custom.length} importiert` : ''}
+          </p>
+        </div>
+        <button
+          onClick={() => setImportOffen(true)}
+          className="shrink-0 rounded-xl bg-brand-500 px-3 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-brand-600"
+        >
+          + Inserat importieren
+        </button>
       </div>
 
       <div className="mb-5 grid gap-3 rounded-2xl bg-white p-4 shadow-card ring-1 ring-black/[0.04] sm:grid-cols-4">
@@ -114,8 +133,8 @@ export default function Markt() {
           <input
             type="range"
             min={150000}
-            max={700000}
-            step={10000}
+            max={2000000}
+            step={25000}
             value={maxPreis}
             onChange={(e) => setMaxPreis(Number(e.target.value))}
             className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-500"
@@ -123,7 +142,7 @@ export default function Markt() {
         </div>
       </div>
 
-      {!alle ? (
+      {!alleObjekte ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="animate-pulse overflow-hidden rounded-2xl bg-white shadow-card">
@@ -146,6 +165,8 @@ export default function Markt() {
           ))}
         </div>
       )}
+
+      {importOffen && <ImportModal onClose={() => setImportOffen(false)} />}
     </div>
   )
 }

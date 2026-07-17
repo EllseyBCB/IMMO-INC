@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import type { Property } from '../../data/types'
 import { ladeMarkt } from '../../data/openimmo'
+import { useCustomListings } from '../../state/customListings'
 import { berechneFinanzierung, monatlicheRaten, useGame } from '../../state/game'
 import { bonitaet, finanzierungsAngebot, kaufnebenkosten } from '../../lib/finanzen'
 import { Badge, Button, Card, Modal, Slider, Stat } from '../../components/ui'
@@ -21,7 +22,11 @@ export default function PropertyDetail() {
     ladeMarkt().then(setAlle)
   }, [])
 
-  const p = useMemo(() => alle?.find((x) => x.id === id), [alle, id])
+  const custom = useCustomListings((s) => s.objekte)
+  const p = useMemo(
+    () => custom.find((x) => x.id === id) ?? alle?.find((x) => x.id === id),
+    [alle, custom, id],
+  )
   const schonGekauft = id ? verkauft.includes(id) : false
 
   const bon = useMemo(
