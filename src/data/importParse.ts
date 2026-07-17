@@ -48,7 +48,7 @@ function num(v: unknown, fallback = 0): number {
 }
 
 /** Baut aus dem (KI-)Rohobjekt eine vollständige, spielbare Property. */
-export function zuProperty(roh: Record<string, unknown>, bilderUrls: string[] = []): Property {
+export function zuProperty(roh: Record<string, unknown>, bilderUrls: string[] = [], idSuffix = ''): Property {
   const objektartRaw = String(roh.objektart ?? 'Wohnung')
   const objektart = (OBJEKTART_ERLAUBT.includes(objektartRaw as Objektart) ? objektartRaw : 'Wohnung') as Objektart
   const zustand = ZUSTAND_NORM[String(roh.zustand ?? '').toLowerCase()] ?? 'gepflegt'
@@ -57,7 +57,7 @@ export function zuProperty(roh: Record<string, unknown>, bilderUrls: string[] = 
   const eigeneBilder = bilderUrls.map((u) => u.trim()).filter((u) => /^https?:\/\//.test(u)).map((u) => sizedImage(u))
 
   return {
-    id: `custom-${seed}-${Math.round(num(roh.wohnflaeche))}${objektart[0]}`,
+    id: `custom-${seed}-${Math.round(num(roh.wohnflaeche))}${objektart[0]}${idSuffix}`,
     titel: String(roh.titel || 'Importiertes Inserat'),
     objektart,
     stadt: String(roh.stadt || 'Unbekannt'),
@@ -84,15 +84,19 @@ export function zuProperty(roh: Record<string, unknown>, bilderUrls: string[] = 
 }
 
 export interface ParseErgebnis {
-  objekt: Property | null
+  objekte: Property[]
   fehler?: string
 }
 
-/** Schickt den Inserat-Text an die KI-Edge-Function und liefert eine Property. */
-export async function parseInserat(text: string, bilderUrls: string[] = []): Promise<ParseErgebnis> {
+/**
+ * Schickt den (ggf. mehrere Inserate umfassenden) Text an die KI-Edge-Function
+ * und liefert eine Liste spielbarer Properties. Bild-URLs werden nur bei genau
+ * einem erkannten Objekt übernommen.
+ */
+export async function parseInserate(text: string, bilderUrls: string[] = []): Promise<ParseErgebnis> {
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 25000)
+    const timeout = setTimeout(() => controller.abort(), 35000)
     const res = await fetch(PARSE_LISTING_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -100,11 +104,15 @@ export async function parseInserat(text: string, bilderUrls: string[] = []): Pro
       body: JSON.stringify({ text }),
     })
     clearTimeout(timeout)
-    if (!res.ok) return { objekt: null, fehler: `Server-Fehler (${res.status})` }
+    if (!res.ok) return { objekte: [], fehler: `Server-Fehler (${res.status})` }
     const data = await res.json()
-    if (!data?.objekt) return { objekt: null, fehler: data?.error === 'missing_key' ? 'KI nicht konfiguriert' : 'Konnte das Inserat nicht auswerten' }
-    return { objekt: zuProperty(data.objekt as Record<string, unknown>, bilderUrls) }
+    const roh = Array.isArray(data?.objekte) ? (data.objekte as Record<string, unknown>[]) : []
+    if (!roh.length) {
+      return { objekte: [], fehler: data?.error === 'missing_key' ? 'KI nicht konfiguriert' : 'Konnte kein Inserat auswerten' }
+    }
+    const objekte = roh.map((o, i) => zuProperty(o, roh.length === 1 ? bilderUrls : [], roh.length === 1 ? '' : `-${i}`))
+    return { objekte }
   } catch (e) {
-    return { objekt: null, fehler: e instanceof Error && e.name === 'AbortError' ? 'Zeitüberschreitung' : 'Netzwerkfehler' }
+    return { objekte: [], fehler: e instanceof Error && e.name === 'AbortError' ? 'Zeitüberschreitung' : 'Netzwerkfehler' }
   }
 }

@@ -6,6 +6,7 @@ const KEY = 'immo-inc-custom-listings-v1'
 interface CustomState {
   objekte: Property[]
   hinzufuegen: (p: Property) => void
+  hinzufuegenViele: (ps: Property[]) => void
   entfernen: (id: string) => void
 }
 
@@ -32,6 +33,13 @@ export const useCustomListings = create<CustomState>((set, get) => ({
     // gleiche id -> ersetzen, sonst voranstellen
     const rest = get().objekte.filter((o) => o.id !== p.id)
     const next = [p, ...rest]
+    set({ objekte: next })
+    save(next)
+  },
+  hinzufuegenViele: (ps) => {
+    const neueIds = new Set(ps.map((p) => p.id))
+    const rest = get().objekte.filter((o) => !neueIds.has(o.id))
+    const next = [...ps, ...rest]
     set({ objekte: next })
     save(next)
   },

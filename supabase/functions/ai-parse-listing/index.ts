@@ -1,6 +1,6 @@
 // IMMO INC — Edge Function "ai-parse-listing"
-// Zerlegt eingefügten Inserat-Text (ImmoScout/Immowelt/ohnemakler/…) per KI in
-// strukturierte Objektfelder. Der OpenAI-Key bleibt serverseitiges Secret.
+// Zerlegt eingefügten Inserat-Text (ein ODER mehrere Inserate, z. B. eine ganze
+// Suchergebnis-Seite) per KI in strukturierte Objekte. Key bleibt Secret.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
@@ -19,7 +19,7 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   const apiKey = Deno.env.get('OPENAI_API_KEY')
-  if (!apiKey) return json({ error: 'missing_key', objekt: null }, 200)
+  if (!apiKey) return json({ error: 'missing_key', objekte: [] }, 200)
 
   let body: { text?: string }
   try {
@@ -27,23 +27,26 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: 'bad_request' }, 400)
   }
-  const text = (body.text ?? '').slice(0, 6000)
+  const text = (body.text ?? '').slice(0, 14000)
   if (!text.trim()) return json({ error: 'empty' }, 400)
 
   const system = [
-    'Du extrahierst aus dem Text eines deutschen Immobilien-Inserats strukturierte Daten.',
-    'Antworte NUR mit einem JSON-Objekt mit exakt diesen Feldern:',
+    'Du extrahierst aus dem Text deutscher Immobilien-Inserate strukturierte Daten.',
+    'Der Text kann EIN oder MEHRERE Inserate enthalten (z. B. eine Suchergebnis-Seite).',
+    'Gib ein JSON-Objekt zurück: { "objekte": [ ... ] } mit einem Eintrag pro Immobilie.',
+    'Jeder Eintrag hat exakt diese Felder:',
     'titel (string), objektart (einer von: "Wohnung","Haus","Reihenhaus","Mehrfamilienhaus","Dachgeschoss"),',
     'stadt (string), stadtteil (string, "" wenn unbekannt), plz (string), bundesland (string, aus der Stadt ableiten),',
-    'kaufpreis (Zahl in Euro), wohnflaeche (Zahl m²), grundstueck (Zahl m² oder null),',
-    'zimmer (Zahl, Dezimal erlaubt), baujahr (Zahl), ',
-    'zustand (einer von: "sanierungsbedürftig","renovierungsbedürftig","gepflegt","modernisiert","neuwertig","erstbezug"),',
-    'energieklasse (Buchstabe A-H oder "—"), hausgeldOderNebenkosten (Zahl €/Monat, schätze wenn nötig),',
-    'kaltmieteMarkt (Zahl €/Monat erzielbare Marktmiete; schätze realistisch, falls nicht genannt),',
-    'beschreibung (string, 1-3 Sätze), ausstattung (Array von Kurz-Strings),',
+    'kaufpreis (Zahl in Euro), wohnflaeche (Zahl m2), grundstueck (Zahl m2 oder null),',
+    'zimmer (Zahl, Dezimal erlaubt), baujahr (Zahl),',
+    'zustand (einer von: "sanierungsbeduerftig","renovierungsbeduerftig","gepflegt","modernisiert","neuwertig","erstbezug"),',
+    'energieklasse (Buchstabe A-H oder "-"), hausgeldOderNebenkosten (Zahl EUR/Monat, schaetze wenn noetig),',
+    'kaltmieteMarkt (Zahl EUR/Monat erzielbare Marktmiete; schaetze realistisch, falls nicht genannt),',
+    'beschreibung (string, 1-3 Saetze), ausstattung (Array von Kurz-Strings),',
     'marktwert (Zahl, fairer Verkehrswert; nahe Kaufpreis, leicht abweichend),',
     'sanierungspotenzial (Zahl 0..1; hoch bei alt/unsaniert, niedrig bei neuwertig).',
-    'Fehlende Zahlen sinnvoll aus Kontext (Lage, Baujahr, Zustand) schätzen. Keine Erklärungen, nur JSON.',
+    'Nur Objekte mit erkennbarem Kaufpreis aufnehmen. Fehlende Zahlen sinnvoll aus Kontext schaetzen.',
+    'Maximal 25 Objekte. Keine Erklaerungen, nur das JSON.',
   ].join(' ')
 
   try {
@@ -57,24 +60,31 @@ Deno.serve(async (req: Request) => {
           { role: 'user', content: text },
         ],
         temperature: 0.2,
-        max_tokens: 700,
+        max_tokens: 3000,
         response_format: { type: 'json_object' },
       }),
     })
     if (!res.ok) {
       const detail = await res.text()
-      return json({ error: 'openai_error', detail, objekt: null }, 200)
+      return json({ error: 'openai_error', detail, objekte: [] }, 200)
     }
     const data = await res.json()
     const raw = data?.choices?.[0]?.message?.content ?? '{}'
-    let objekt: unknown = null
+    let parsed: any = {}
     try {
-      objekt = JSON.parse(raw)
+      parsed = JSON.parse(raw)
     } catch {
-      objekt = null
+      parsed = {}
     }
-    return json({ objekt })
+    const objekte = Array.isArray(parsed?.objekte)
+      ? parsed.objekte
+      : Array.isArray(parsed)
+        ? parsed
+        : parsed && typeof parsed === 'object' && parsed.kaufpreis
+          ? [parsed]
+          : []
+    return json({ objekte })
   } catch (e) {
-    return json({ error: 'exception', detail: String(e), objekt: null }, 200)
+    return json({ error: 'exception', detail: String(e), objekte: [] }, 200)
   }
 })
