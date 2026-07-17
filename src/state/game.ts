@@ -28,6 +28,7 @@ export interface RenovationState {
   fertigTs: number
   prompt: string
   status: 'in_arbeit' | 'fertig'
+  bautraeger?: string
 }
 
 export type Nutzung = 'leer' | 'vermietet' | 'zumVerkauf'
@@ -78,6 +79,15 @@ export interface GameState {
   reset: () => void
   kaufen: (property: Property, finanzierung: Finanzierung, mitMakler: boolean) => void
   renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet, tempo: Bautempo) => void
+  renovierenAushandeln: (
+    uid: string,
+    scopes: RenovationScope[],
+    qualitaet: Qualitaet,
+    tempo: Bautempo,
+    kosten: number,
+    bauzeit: number,
+    bautraeger?: string,
+  ) => void
   renovierungBeschleunigen: (uid: string) => void
   setNutzung: (uid: string, nutzung: Nutzung) => void
   vermieten: (uid: string, kaltmiete: number, mieter?: { name: string; risiko: Risiko }) => void
@@ -329,6 +339,55 @@ export const useGame = create<GameState>((set, get) => ({
     })
     persist(get())
     return nettoCash
+  },
+
+  renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger) => {
+    const s = get()
+    const idx = s.owned.findIndex((o) => o.uid === uid)
+    if (idx < 0) return
+    const o = s.owned[idx]
+    const r = berechneRenovierung(
+      scopes,
+      qualitaet,
+      tempo,
+      o.property.wohnflaeche,
+      o.property.marktwert,
+      o.property.sanierungspotenzial,
+    )
+    const preis = Math.max(0, Math.round(kosten))
+    if (preis > s.cash) return
+    const dauerMonate = Math.max(1, Math.round(bauzeit))
+
+    const renovierung: RenovationState = {
+      scopes,
+      qualitaet,
+      tempo,
+      kosten: preis,
+      wertsteigerung: r.wertsteigerung,
+      startMonth: s.monthIndex,
+      fertigMonth: s.monthIndex + dauerMonate,
+      fertigTs: Date.now() + dauerMonate * MS_PRO_MONAT,
+      prompt: r.prompt,
+      status: 'in_arbeit',
+      bautraeger,
+    }
+    const owned = [...s.owned]
+    owned[idx] = { ...o, renovierung }
+
+    set({
+      cash: s.cash - preis,
+      owned,
+      log: [
+        {
+          month: Math.floor(s.monthIndex),
+          text: `Renovierung beauftragt: ${o.property.titel}${bautraeger ? ` an ${bautraeger}` : ''} — ${preis.toLocaleString('de-DE')} €, fertig in ${dauerMonate} Mon.`,
+          betrag: -preis,
+          art: 'renovierung' as const,
+        },
+        ...s.log,
+      ].slice(0, 200),
+    })
+    persist(get())
   },
 
   renovierungBeschleunigen: (uid) => {
