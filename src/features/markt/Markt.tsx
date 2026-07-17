@@ -19,6 +19,12 @@ export default function Markt() {
   const [maxPreis, setMaxPreis] = useState(2000000)
   const [sort, setSort] = useState<Sort>('potenzial')
   const [importOffen, setImportOffen] = useState(false)
+  const [limit, setLimit] = useState(48)
+
+  // Bei Filter-/Sortierwechsel wieder oben anfangen.
+  useEffect(() => {
+    setLimit(48)
+  }, [q, stadt, maxPreis, sort])
 
   useEffect(() => {
     ladeMarkt()
@@ -159,11 +165,23 @@ export default function Markt() {
           Keine Objekte gefunden. Passe die Filter an.
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {gefiltert.map((p) => (
-            <PropertyCard key={p.id} p={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {gefiltert.slice(0, limit).map((p) => (
+              <PropertyCard key={p.id} p={p} />
+            ))}
+          </div>
+          {gefiltert.length > limit && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setLimit((l) => l + 48)}
+                className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-ink-700 shadow-card ring-1 ring-black/[0.04] transition hover:bg-slate-50"
+              >
+                Weitere {Math.min(48, gefiltert.length - limit)} von {gefiltert.length} anzeigen
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {importOffen && <ImportModal onClose={() => setImportOffen(false)} />}

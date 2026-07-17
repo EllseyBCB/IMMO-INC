@@ -201,6 +201,7 @@ function KaufModal({
   const fin = berechneFinanzierung(p.kaufpreis, p.bundesland, true, eigen, angebot.angebotenerZins, laufzeit)
 
   const zuWenigCash = eigen > cash
+  const barkauf = angebot.darlehen <= 0
   const kannKaufen = angebot.genehmigt && !zuWenigCash && eigen >= minEigen
 
   return (
@@ -225,8 +226,29 @@ function KaufModal({
             <span>verfügbar: {euro(cash)}</span>
             <span>Rest als Darlehen: {euro(fin.darlehen)}</span>
           </div>
+          {cash >= gesamtkosten && !barkauf && (
+            <button
+              onClick={() => setEigen(gesamtkosten)}
+              className="mt-2 w-full rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+            >
+              💶 Komplett bezahlen (Barkauf, kein Kredit)
+            </button>
+          )}
         </div>
 
+        {barkauf ? (
+          <div className="rounded-xl bg-emerald-50 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-emerald-800">✓ Barkauf — kein Kredit</span>
+              <span className="text-xs font-semibold text-emerald-700">0 € Rate</span>
+            </div>
+            <p className="mt-1 text-xs text-emerald-700/80">
+              Du bezahlst das Objekt komplett aus Eigenkapital. Keine Bank, kein Zins, keine Monatsrate — dafür ist dein
+              Kapital gebunden.
+            </p>
+          </div>
+        ) : (
+          <>
         <div>
           <div className="mb-1 flex justify-between text-sm">
             <span className="font-medium text-ink-700">Laufzeit</span>
@@ -287,6 +309,8 @@ function KaufModal({
           <Stat label="Darlehen" value={euro(angebot.darlehen)} />
           <Stat label="Kreditrahmen" value={euro(angebot.rahmen)} />
         </div>
+          </>
+        )}
 
         {zuWenigCash && <Hinweis tone="rose">Dein Eigenkapital-Einsatz übersteigt deine Liquidität.</Hinweis>}
         {!angebot.genehmigt && !zuWenigCash && (

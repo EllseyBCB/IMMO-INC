@@ -130,12 +130,15 @@ export function parseOpenImmo(xml: string): Property[] {
 
 let cache: Property[] | null = null
 
-/** Lädt und cached den Markt-Datensatz. */
+/** Lädt und cached den Markt-Datensatz (kuratierte OpenImmo-Objekte + generierte). */
 export async function ladeMarkt(): Promise<Property[]> {
   if (cache) return cache
   const res = await fetch(`${import.meta.env.BASE_URL}data/immobilien.xml`)
   if (!res.ok) throw new Error(`Marktdaten konnten nicht geladen werden (${res.status}).`)
   const xml = await res.text()
-  cache = parseOpenImmo(xml)
+  const kuratiert = parseOpenImmo(xml)
+  // Lazy-Import vermeidet Zyklus; generierte Objekte füllen den Markt auf 500+.
+  const { generateMarkt } = await import('./generated')
+  cache = [...kuratiert, ...generateMarkt()]
   return cache
 }
