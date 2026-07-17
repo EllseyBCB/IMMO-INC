@@ -1,13 +1,11 @@
 import { create } from 'zustand'
 import type { Property, Qualitaet, RenovationScope, Bautempo } from '../data/types'
-import {
-  annuitaet,
-  kaufnebenkosten,
-  restschuld as restschuldCalc,
-  spekulationssteuer,
-  verkaufsnebenkosten,
-} from '../lib/finanzen'
+import { annuitaet, kaufnebenkosten, spekulationssteuer, verkaufsnebenkosten } from '../lib/finanzen'
 import { berechneRenovierung } from '../data/renovation'
+
+// Echtzeit-Modell (Clash-Royale-Stil): Zeit läuft real, nicht per Klick.
+export const MS_PRO_MONAT = 60000 // 1 Spiel-Monat = 60 s Echtzeit
+const MAX_ELAPSED_MONATE = 12 // Offline-Fortschritt gedeckelt (kein Uralt-Sprung)
 
 export interface Finanzierung {
   eigenkapitalEinsatz: number
@@ -25,6 +23,8 @@ export interface RenovationState {
   wertsteigerung: number
   startMonth: number
   fertigMonth: number
+  /** Echtzeit-Zeitstempel (ms), wann die Renovierung fertig ist. */
+  fertigTs: number
   prompt: string
   status: 'in_arbeit' | 'fertig'
 }
@@ -66,6 +66,7 @@ export interface GameState {
   cash: number
   monthIndex: number
   startEigenkapital: number
+  lastTick: number // Echtzeit-Stempel des letzten Ticks (ms)
   owned: OwnedProperty[]
   verkauft: string[] // property ids die vom Markt verschwinden
   log: LogEintrag[]
@@ -74,9 +75,11 @@ export interface GameState {
   reset: () => void
   kaufen: (property: Property, finanzierung: Finanzierung, mitMakler: boolean) => void
   renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet, tempo: Bautempo) => void
+  renovierungBeschleunigen: (uid: string) => void
   setNutzung: (uid: string, nutzung: Nutzung) => void
   verkaufen: (uid: string, preis: number) => number
-  naechsterMonat: () => void
+  /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
+  tick: () => void
   laden: (s: Partial<GameState>) => void
 }
 
@@ -91,6 +94,7 @@ function persist(state: GameState) {
       cash: state.cash,
       monthIndex: state.monthIndex,
       startEigenkapital: state.startEigenkapital,
+      lastTick: state.lastTick,
       owned: state.owned,
       verkauft: state.verkauft,
       log: state.log,
@@ -128,6 +132,7 @@ export const useGame = create<GameState>((set, get) => ({
   cash: 0,
   monthIndex: 0,
   startEigenkapital: 0,
+  lastTick: 0,
   owned: [],
   verkauft: [],
   log: [],
@@ -140,6 +145,7 @@ export const useGame = create<GameState>((set, get) => ({
       cash: startkapital,
       startEigenkapital: startkapital,
       monthIndex: 0,
+      lastTick: Date.now(),
       owned: [],
       verkauft: [],
       log: [
@@ -164,6 +170,7 @@ export const useGame = create<GameState>((set, get) => ({
       cash: 0,
       monthIndex: 0,
       startEigenkapital: 0,
+      lastTick: 0,
       owned: [],
       verkauft: [],
       log: [],
@@ -230,6 +237,7 @@ export const useGame = create<GameState>((set, get) => ({
       wertsteigerung: r.wertsteigerung,
       startMonth: s.monthIndex,
       fertigMonth: s.monthIndex + r.bauzeit,
+      fertigTs: Date.now() + r.bauzeit * MS_PRO_MONAT,
       prompt: r.prompt,
       status: 'in_arbeit',
     }
@@ -288,39 +296,71 @@ export const useGame = create<GameState>((set, get) => ({
     return nettoCash
   },
 
-  naechsterMonat: () => {
+  renovierungBeschleunigen: (uid) => {
     const s = get()
-    const month = s.monthIndex + 1
+    const idx = s.owned.findIndex((o) => o.uid === uid)
+    if (idx < 0) return
+    const o = s.owned[idx]
+    if (!o.renovierung || o.renovierung.status !== 'in_arbeit') return
+    const kosten = skipKosten(o)
+    if (kosten > s.cash) return
+
+    const owned = [...s.owned]
+    const aktuellerWert = Math.round(o.property.marktwert + o.renovierung.wertsteigerung)
+    owned[idx] = { ...o, renovierung: { ...o.renovierung, status: 'fertig', fertigTs: Date.now() }, aktuellerWert }
+
+    const neu: LogEintrag[] = [
+      {
+        month: Math.floor(s.monthIndex),
+        text: `Renovierung sofort fertiggestellt: ${o.property.titel} (Express-Aufpreis)`,
+        betrag: -kosten,
+        art: 'renovierung',
+      },
+      {
+        month: Math.floor(s.monthIndex),
+        text: `Renovierung fertig: ${o.property.titel}. Neuer Wert ~${aktuellerWert.toLocaleString('de-DE')} €`,
+        art: 'renovierung',
+      },
+    ]
+
+    set({ cash: s.cash - kosten, owned, log: [...neu, ...s.log].slice(0, 200) })
+    persist(get())
+  },
+
+  tick: () => {
+    const s = get()
+    if (!s.gestartet) return
+    const now = Date.now()
+    const last = s.lastTick || now
+    let elapsed = (now - last) / MS_PRO_MONAT
+    if (elapsed <= 0) return
+    elapsed = Math.min(elapsed, MAX_ELAPSED_MONATE)
+
     let cash = s.cash
     const neueLogs: LogEintrag[] = []
+    const monthNach = s.monthIndex + elapsed
 
     const owned = s.owned.map((o) => {
-      let updated = { ...o }
+      const updated = { ...o }
 
-      // Kreditrate abbuchen
+      // Kreditrate anteilig für die verstrichene Zeit
       if (o.restschuld > 0 && o.finanzierung.monatsrate > 0) {
-        const neueRest = restschuldCalc(o.restschuld, o.finanzierung.sollzins, o.finanzierung.monatsrate, 1)
-        const gezahlt = Math.min(o.finanzierung.monatsrate, o.restschuld + o.restschuld * (o.finanzierung.sollzins / 12))
-        cash -= gezahlt
-        updated.restschuld = neueRest
+        const zins = o.restschuld * (o.finanzierung.sollzins / 12)
+        const tilgung = Math.max(0, o.finanzierung.monatsrate - zins)
+        updated.restschuld = Math.max(0, o.restschuld - tilgung * elapsed)
+        cash -= o.finanzierung.monatsrate * elapsed
       }
 
-      // laufende Kosten (Hausgeld/Nebenkosten) wenn nicht vermietet trägt Eigentümer
-      if (o.nutzung !== 'vermietet') {
-        cash -= o.property.hausgeldOderNebenkosten
-      }
+      // laufende Kosten bzw. Mieteinnahmen
+      if (o.nutzung === 'vermietet') cash += o.kaltmiete * elapsed
+      else cash -= o.property.hausgeldOderNebenkosten * elapsed
 
-      // Mieteinnahmen
-      if (o.nutzung === 'vermietet') {
-        cash += o.kaltmiete
-      }
-
-      // Renovierung fertigstellen
-      if (o.renovierung && o.renovierung.status === 'in_arbeit' && month >= o.renovierung.fertigMonth) {
+      // Renovierung per Echtzeit-Timer fertigstellen
+      if (o.renovierung && o.renovierung.status === 'in_arbeit' && now >= o.renovierung.fertigTs) {
         updated.renovierung = { ...o.renovierung, status: 'fertig' }
         updated.aktuellerWert = Math.round(o.property.marktwert + o.renovierung.wertsteigerung)
         neueLogs.push({
-          month,
+          month: Math.floor(monthNach),
           text: `Renovierung fertig: ${o.property.titel}. Neuer Wert ~${updated.aktuellerWert.toLocaleString('de-DE')} €`,
           art: 'renovierung',
         })
@@ -329,23 +369,35 @@ export const useGame = create<GameState>((set, get) => ({
       return updated
     })
 
-    // private Lebenshaltung: Einkommen minus Fixkosten fließt in die Kasse
-    const privatSaldo = s.lebenssituation.nettoEinkommen - s.lebenssituation.fixkosten
-    cash += privatSaldo
+    // private Lebenshaltung
+    cash += (s.lebenssituation.nettoEinkommen - s.lebenssituation.fixkosten) * elapsed
 
     set({
-      monthIndex: month,
+      monthIndex: monthNach,
       cash: Math.round(cash),
+      lastTick: now,
       owned,
-      log: [...neueLogs, ...s.log].slice(0, 200),
+      log: neueLogs.length ? [...neueLogs, ...s.log].slice(0, 200) : s.log,
     })
     persist(get())
   },
 
   laden: (partial) => {
-    set(partial)
+    set({ ...partial, lastTick: partial.lastTick || Date.now() })
   },
 }))
+
+/** Verbleibende Renovierungszeit in ms (0 wenn keine läuft). */
+export function renoRestMs(o: OwnedProperty): number {
+  if (!o.renovierung || o.renovierung.status !== 'in_arbeit') return 0
+  return Math.max(0, o.renovierung.fertigTs - Date.now())
+}
+
+/** Kosten, um die laufende Renovierung sofort fertigzustellen (Express-Aufpreis). */
+export function skipKosten(o: OwnedProperty): number {
+  const restMonate = renoRestMs(o) / MS_PRO_MONAT
+  return Math.round(restMonate * o.property.kaufpreis * 0.003)
+}
 
 // --- abgeleitete Kennzahlen ------------------------------------------------
 

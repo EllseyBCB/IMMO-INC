@@ -1,15 +1,15 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import type { OwnedProperty } from '../../state/game'
-import { monatlicheMiete, monatlicheRaten, portfolioWert, schulden, useGame } from '../../state/game'
+import { monatlicheMiete, monatlicheRaten, portfolioWert, renoRestMs, schulden, skipKosten, useGame } from '../../state/game'
 import { Badge, Button, Card, Stat } from '../../components/ui'
-import { euro, gameDate } from '../../lib/format'
+import { dauer, euro, gameDate } from '../../lib/format'
 import { zustandLabel, zustandTone } from '../markt/propertyUtil'
 import BautraegerModal from './BautraegerModal'
 import VerkaufModal from './VerkaufModal'
 
 export default function Portfolio() {
-  const { owned, monthIndex, setNutzung } = useGame()
+  const { owned, setNutzung } = useGame()
   const [renoUid, setRenoUid] = useState<string | null>(null)
   // Verkauf hält eine Momentaufnahme: nach dem Verkauf verschwindet das Objekt
   // aus `owned`, das Ergebnis-Fenster soll aber sichtbar bleiben.
@@ -48,7 +48,6 @@ export default function Portfolio() {
               <ObjektKarte
                 key={o.uid}
                 o={o}
-                monthIndex={monthIndex}
                 onRenovieren={() => setRenoUid(o.uid)}
                 onVerkaufen={() => setVerkaufObjekt(o)}
                 onVermieten={() => setNutzung(o.uid, o.nutzung === 'vermietet' ? 'leer' : 'vermietet')}
@@ -67,20 +66,20 @@ export default function Portfolio() {
 
 function ObjektKarte({
   o,
-  monthIndex,
   onRenovieren,
   onVerkaufen,
   onVermieten,
 }: {
   o: OwnedProperty
-  monthIndex: number
   onRenovieren: () => void
   onVerkaufen: () => void
   onVermieten: () => void
 }) {
+  const { cash, renovierungBeschleunigen } = useGame()
   const p = o.property
   const reno = o.renovierung
   const inArbeit = reno?.status === 'in_arbeit'
+  const skip = inArbeit ? skipKosten(o) : 0
   const eigenkapitalGebunden = o.kaufpreis + o.nebenkosten + (reno?.kosten ?? 0) - o.finanzierung.darlehen
   const gewinnGeschaetzt = o.aktuellerWert - (o.kaufpreis + o.nebenkosten + (reno?.kosten ?? 0))
 
@@ -119,9 +118,20 @@ function ObjektKarte({
           </div>
 
           {inArbeit && reno && (
-            <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-              🏗️ Renovierung läuft — fertig {gameDate(reno.fertigMonth)} (noch {Math.max(0, reno.fertigMonth - monthIndex)}{' '}
-              Monate). Wertsteigerung ~{euro(reno.wertsteigerung)}.
+            <div className="mt-3 rounded-xl bg-amber-50 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-800">
+                  🏗️ Baustelle — fertig in <span className="tabular-nums">{dauer(renoRestMs(o))}</span>
+                </span>
+                <span className="text-[11px] font-medium text-amber-700">+{euro(reno.wertsteigerung)} Wert</span>
+              </div>
+              <button
+                onClick={() => renovierungBeschleunigen(o.uid)}
+                disabled={skip > cash}
+                className="mt-2 w-full rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-amber-600 disabled:opacity-40"
+              >
+                ⚡ Sofort fertigstellen{skip > 0 ? ` · ${euro(skip)}` : ''}
+              </button>
             </div>
           )}
 

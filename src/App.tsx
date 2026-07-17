@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { ladeSpielstand, monatlicheMiete, monatlicheRaten, nettoVermoegen, useGame } from './state/game'
+import { ladeSpielstand, nettoVermoegen, useGame } from './state/game'
 import { euro, euroShort, gameDate } from './lib/format'
 import Onboarding from './features/onboarding/Onboarding'
 import Markt from './features/markt/Markt'
@@ -11,13 +11,8 @@ import Finanzen from './features/finanzen/Finanzen'
 import Handy from './features/handy/Handy'
 
 function TopBar() {
-  const { cash, owned, monthIndex, naechsterMonat, lebenssituation } = useGame()
+  const { cash, owned, monthIndex } = useGame()
   const vermoegen = nettoVermoegen(cash, owned)
-  const raten = monatlicheRaten(owned)
-  const miete = monatlicheMiete(owned)
-  const privat = lebenssituation.nettoEinkommen - lebenssituation.fixkosten
-  const monatsCashflow = privat + miete - raten -
-    owned.filter((o) => o.nutzung !== 'vermietet').reduce((s, o) => s + o.property.hausgeldOderNebenkosten, 0)
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/85 backdrop-blur">
@@ -28,11 +23,14 @@ function TopBar() {
           </div>
           <div className="leading-tight">
             <div className="text-sm font-extrabold tracking-tight text-ink-900">IMMO INC</div>
-            <div className="text-[11px] text-ink-500">{gameDate(monthIndex)}</div>
+            <div className="flex items-center gap-1 text-[11px] text-ink-500">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              {gameDate(monthIndex)} · Echtzeit
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           <div className="hidden text-right sm:block">
             <div className="text-[11px] uppercase tracking-wide text-ink-500">Vermögen</div>
             <div className="text-sm font-bold tabular-nums text-ink-900">{euroShort(vermoegen)}</div>
@@ -43,14 +41,6 @@ function TopBar() {
               {euro(cash)}
             </div>
           </div>
-          <button
-            onClick={naechsterMonat}
-            title={`Monats-Cashflow ~${euro(monatsCashflow)}`}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-ink-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98]"
-          >
-            <span>Monat</span>
-            <span aria-hidden>→</span>
-          </button>
         </div>
       </div>
     </header>
@@ -97,6 +87,12 @@ export default function App() {
     const saved = ladeSpielstand()
     if (saved && saved.gestartet) laden(saved)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Echtzeit-Herzschlag: wendet jede Sekunde die vergangene Zeit an (auch offline).
+  useEffect(() => {
+    const id = setInterval(() => useGame.getState().tick(), 1000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {

@@ -49,7 +49,19 @@ export function gameDate(monthIndex: number, startYear = 2026): string {
     'Jan', 'Feb', 'März', 'Apr', 'Mai', 'Juni',
     'Juli', 'Aug', 'Sept', 'Okt', 'Nov', 'Dez',
   ]
-  const year = startYear + Math.floor(monthIndex / 12)
-  const m = ((monthIndex % 12) + 12) % 12
+  const mi = Math.floor(monthIndex)
+  const year = startYear + Math.floor(mi / 12)
+  const m = ((mi % 12) + 12) % 12
   return `${months[m]} ${year}`
+}
+
+/** Format a real-time duration (ms) as a compact countdown, e.g. "2:05 min" or "1h 12m". */
+export function dauer(ms: number): string {
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  if (s < 60) return `${s}s`
+  const min = Math.floor(s / 60)
+  const rest = s % 60
+  if (min < 60) return `${min}:${String(rest).padStart(2, '0')} min`
+  const h = Math.floor(min / 60)
+  return `${h}h ${min % 60}m`
 }
