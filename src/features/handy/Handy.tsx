@@ -6,16 +6,18 @@ import { Modal } from '../../components/ui'
 import BautraegerModal, { type BeauftragtInfo } from '../portfolio/BautraegerModal'
 import { CONTACTS, getContact, type Contact } from './contacts'
 import { frageKontakt, type GameContext } from '../../lib/ai'
+import VermietungApp from './VermietungApp'
 
 export default function Handy() {
   const [offen, setOffen] = useState<string | null>(null)
+  const [appOffen, setAppOffen] = useState<string | null>(null)
   const contact = offen ? getContact(offen) : null
 
   return (
     <div>
       <div className="mb-4">
         <h1 className="text-2xl font-black tracking-tight text-ink-900">Dein Handy</h1>
-        <p className="text-sm text-ink-500">Schreib deinen Kontakten — sie antworten dir individuell.</p>
+        <p className="text-sm text-ink-500">Kontakte anschreiben und Mieter verwalten.</p>
       </div>
 
       <div className="flex justify-center">
@@ -24,8 +26,10 @@ export default function Handy() {
             <div className="relative h-[640px] overflow-hidden rounded-[2rem] bg-gradient-to-b from-slate-50 to-white">
               {contact ? (
                 <ChatView contact={contact} onBack={() => setOffen(null)} />
+              ) : appOffen === 'vermietung' ? (
+                <VermietungApp onClose={() => setAppOffen(null)} />
               ) : (
-                <HomeScreen onOpen={setOffen} />
+                <HomeScreen onOpen={setOffen} onOpenApp={setAppOffen} />
               )}
             </div>
           </div>
@@ -46,12 +50,28 @@ function StatusBar() {
   )
 }
 
-function HomeScreen({ onOpen }: { onOpen: (id: string) => void }) {
+function HomeScreen({ onOpen, onOpenApp }: { onOpen: (id: string) => void; onOpenApp: (app: string) => void }) {
   const threads = useMessages((s) => s.threads)
 
   return (
     <div className="flex h-full flex-col">
       <StatusBar />
+
+      {/* App-Kacheln */}
+      <div className="px-5 pb-1 pt-2">
+        <button
+          onClick={() => onOpenApp('vermietung')}
+          className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-600 p-3 text-left text-white shadow-md transition active:scale-[0.99]"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/20 text-2xl">🔑</span>
+          <span className="flex-1">
+            <span className="block text-sm font-black">Vermietung</span>
+            <span className="block text-[11px] text-white/85">Mieter finden, verhandeln & auswählen</span>
+          </span>
+          <span className="text-white/70">›</span>
+        </button>
+      </div>
+
       <div className="px-5 pb-2 pt-3">
         <h2 className="text-lg font-black text-ink-900">Nachrichten</h2>
       </div>

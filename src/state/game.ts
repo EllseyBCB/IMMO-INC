@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Property, Qualitaet, RenovationScope, Bautempo } from '../data/types'
 import { annuitaet, kaufnebenkosten, spekulationssteuer, verkaufsnebenkosten } from '../lib/finanzen'
 import { berechneRenovierung } from '../data/renovation'
+import type { Risiko } from '../data/mieter'
 
 // Echtzeit-Modell (Clash-Royale-Stil): Zeit läuft real, nicht per Klick.
 export const MS_PRO_MONAT = 60000 // 1 Spiel-Monat = 60 s Echtzeit
@@ -44,6 +45,8 @@ export interface OwnedProperty {
   aktuellerWert: number
   nutzung: Nutzung
   kaltmiete: number
+  mieterName?: string
+  mieterRisiko?: Risiko
 }
 
 export interface LogEintrag {
@@ -77,7 +80,7 @@ export interface GameState {
   renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet, tempo: Bautempo) => void
   renovierungBeschleunigen: (uid: string) => void
   setNutzung: (uid: string, nutzung: Nutzung) => void
-  vermieten: (uid: string, kaltmiete: number) => void
+  vermieten: (uid: string, kaltmiete: number, mieter?: { name: string; risiko: Risiko }) => void
   verkaufen: (uid: string, preis: number) => number
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
@@ -268,18 +271,28 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
-  vermieten: (uid, kaltmiete) => {
+  vermieten: (uid, kaltmiete, mieter) => {
     const s = get()
     const betrag = Math.max(0, Math.round(kaltmiete))
     const o = s.owned.find((x) => x.uid === uid)
-    const owned = s.owned.map((x) => (x.uid === uid ? { ...x, nutzung: 'vermietet' as const, kaltmiete: betrag } : x))
+    const owned = s.owned.map((x) =>
+      x.uid === uid
+        ? {
+            ...x,
+            nutzung: 'vermietet' as const,
+            kaltmiete: betrag,
+            mieterName: mieter?.name ?? x.mieterName,
+            mieterRisiko: mieter?.risiko ?? x.mieterRisiko,
+          }
+        : x,
+    )
     set({
       owned,
       log: o
         ? [
             {
               month: Math.floor(s.monthIndex),
-              text: `Vermietet: ${o.property.titel} für ${betrag.toLocaleString('de-DE')} €/M`,
+              text: `Vermietet: ${o.property.titel} für ${betrag.toLocaleString('de-DE')} €/M${mieter ? ` an ${mieter.name}` : ''}`,
               art: 'miete' as const,
             },
             ...s.log,
