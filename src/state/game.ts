@@ -55,7 +55,7 @@ export interface LogEintrag {
   month: number
   text: string
   betrag?: number
-  art: 'kauf' | 'verkauf' | 'renovierung' | 'miete' | 'rate' | 'kosten' | 'info'
+  art: 'kauf' | 'verkauf' | 'renovierung' | 'miete' | 'rate' | 'kosten' | 'gehalt' | 'info'
 }
 
 export interface Lebenssituation {
@@ -501,6 +501,36 @@ export const useGame = create<GameState>((set, get) => ({
     // Sonderausgaben: wachsen mit dem Vermögen + Unterhalt des Lebensstandards
     const vermoegenVorher = nettoVermoegen(s.cash, s.owned)
     cash -= sonderausgabenMonat(vermoegenVorher, s.gekaufteLuxus) * elapsed
+
+    // Monatliche Umsätze buchen, sobald eine Monatsgrenze überschritten wird —
+    // wie auf einem echten Konto (Gehalt, Mieten, Raten, Hausgeld, Ausgaben).
+    const startM = Math.floor(s.monthIndex)
+    const endM = Math.floor(monthNach)
+    if (endM > startM) {
+      const netto = Math.round(s.lebenssituation.nettoEinkommen)
+      const fix = Math.round(s.lebenssituation.fixkosten)
+      const sumMiete = Math.round(owned.filter((o) => o.nutzung === 'vermietet').reduce((a, o) => a + o.kaltmiete, 0))
+      const sumRate = Math.round(
+        owned.filter((o) => o.restschuld > 0 && o.finanzierung.monatsrate > 0).reduce((a, o) => a + o.finanzierung.monatsrate, 0),
+      )
+      const sumHaus = Math.round(
+        owned.filter((o) => o.nutzung !== 'vermietet').reduce((a, o) => a + o.property.hausgeldOderNebenkosten, 0),
+      )
+      const sonder = Math.round(sonderausgabenMonat(vermoegenVorher, s.gekaufteLuxus))
+      const maxBuchen = 6
+      const von = Math.max(startM + 1, endM - maxBuchen + 1)
+      for (let m = endM; m >= von; m--) {
+        if (netto > 0) neueLogs.push({ month: m, text: 'Gehaltseingang', betrag: netto, art: 'gehalt' })
+        if (sumMiete > 0) neueLogs.push({ month: m, text: 'Mieteinnahmen', betrag: sumMiete, art: 'miete' })
+        if (sumRate > 0) neueLogs.push({ month: m, text: 'Kreditraten (Immobilien)', betrag: -sumRate, art: 'rate' })
+        if (sumHaus > 0) neueLogs.push({ month: m, text: 'Hausgeld / Nebenkosten', betrag: -sumHaus, art: 'kosten' })
+        if (fix > 0) neueLogs.push({ month: m, text: 'Lebenshaltung (privat)', betrag: -fix, art: 'kosten' })
+        if (sonder > 0) neueLogs.push({ month: m, text: 'Sonderausgaben (Lebensstandard)', betrag: -sonder, art: 'kosten' })
+      }
+      if (endM - startM > maxBuchen) {
+        neueLogs.push({ month: von - 1, text: `${endM - startM - maxBuchen} weitere Monate zusammengefasst`, art: 'info' })
+      }
+    }
 
     set({
       monthIndex: monthNach,

@@ -18,6 +18,7 @@ const ART_STYLE: Record<string, { icon: string; tone: string }> = {
   miete: { icon: '🔑', tone: 'text-emerald-600' },
   rate: { icon: '🏦', tone: 'text-rose-600' },
   kosten: { icon: '📉', tone: 'text-rose-600' },
+  gehalt: { icon: '💶', tone: 'text-emerald-600' },
   info: { icon: 'ℹ️', tone: 'text-ink-500' },
 }
 

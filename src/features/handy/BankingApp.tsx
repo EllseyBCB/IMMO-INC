@@ -16,6 +16,7 @@ const ART: Record<string, string> = {
   miete: '🔑',
   rate: '🏦',
   kosten: '📉',
+  gehalt: '💶',
   info: 'ℹ️',
 }
 
