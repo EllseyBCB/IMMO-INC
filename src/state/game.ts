@@ -94,6 +94,8 @@ export interface GameState {
   verkaufen: (uid: string, preis: number) => number
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
+  /** Springt exakt einen Monat vor (als wären die 4 Echt-Stunden vergangen). */
+  monatVorspringen: () => void
   laden: (s: Partial<GameState>) => void
 }
 
@@ -474,6 +476,21 @@ export const useGame = create<GameState>((set, get) => ({
       log: neueLogs.length ? [...neueLogs, ...s.log].slice(0, 200) : s.log,
     })
     persist(get())
+  },
+
+  monatVorspringen: () => {
+    const s = get()
+    if (!s.gestartet) return
+    // Alle Echtzeit-Anker um einen Monat "zurück" schieben — das entspricht,
+    // als wäre die reale Zeit um 4 Stunden vorgesprungen. tick() rechnet dann
+    // exakt einen Monat ab (Raten, Mieten, Hausgeld, Lebenshaltung, Renovierung).
+    const owned = s.owned.map((o) =>
+      o.renovierung && o.renovierung.status === 'in_arbeit'
+        ? { ...o, renovierung: { ...o.renovierung, fertigTs: o.renovierung.fertigTs - MS_PRO_MONAT } }
+        : o,
+    )
+    set({ owned, lastTick: (s.lastTick || Date.now()) - MS_PRO_MONAT })
+    get().tick()
   },
 
   laden: (partial) => {

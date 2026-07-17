@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { ladeSpielstand, nettoVermoegen, useGame } from './state/game'
-import { euro, euroShort, gameDate } from './lib/format'
+import { euro, euroShort, gameDatum } from './lib/format'
 import Onboarding from './features/onboarding/Onboarding'
 import Markt from './features/markt/Markt'
 import PropertyDetail from './features/markt/PropertyDetail'
@@ -12,6 +12,7 @@ import Handy from './features/handy/Handy'
 
 function TopBar() {
   const { cash, owned, monthIndex } = useGame()
+  const monatVorspringen = useGame((s) => s.monatVorspringen)
   const vermoegen = nettoVermoegen(cash, owned)
 
   return (
@@ -25,12 +26,20 @@ function TopBar() {
             <div className="text-sm font-extrabold tracking-tight text-ink-900">IMMO INC</div>
             <div className="flex items-center gap-1 text-[11px] text-ink-500">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              {gameDate(monthIndex)} · Echtzeit
+              {gameDatum(monthIndex)} · Echtzeit
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5">
+          <button
+            onClick={monatVorspringen}
+            title="Einen Monat vorspringen"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-ink-700 shadow-soft transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+          >
+            <span className="text-sm leading-none">⏭️</span>
+            <span>+1 Monat</span>
+          </button>
           <div className="hidden text-right sm:block">
             <div className="text-[11px] uppercase tracking-wide text-ink-500">Vermögen</div>
             <div className="text-sm font-bold tabular-nums text-ink-900">{euroShort(vermoegen)}</div>
