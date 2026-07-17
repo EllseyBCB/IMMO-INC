@@ -6,7 +6,23 @@ import { BAUTEMPO, QUALITAET_FAKTOR, RENOVATION_KATALOG, berechneRenovierung } f
 import { Button, Modal, Stat } from '../../components/ui'
 import { euro } from '../../lib/format'
 
-export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onClose: () => void }) {
+export interface BeauftragtInfo {
+  titel: string
+  gewerke: string[]
+  tempoLabel: string
+  kosten: number
+  bauzeit: number
+}
+
+export default function BautraegerModal({
+  o,
+  onClose,
+  onBeauftragt,
+}: {
+  o: OwnedProperty
+  onClose: () => void
+  onBeauftragt?: (info: BeauftragtInfo) => void
+}) {
   const { cash, renovieren } = useGame()
   const [scopes, setScopes] = useState<RenovationScope[]>([])
   const [qualitaet, setQualitaet] = useState<Qualitaet>('gehoben')
@@ -169,6 +185,13 @@ export default function BautraegerModal({ o, onClose }: { o: OwnedProperty; onCl
           disabled={nichtsGewaehlt || zuTeuer}
           onClick={() => {
             renovieren(o.uid, scopes, qualitaet, tempo)
+            onBeauftragt?.({
+              titel: o.property.titel,
+              gewerke: scopes.map((s) => RENOVATION_KATALOG.find((x) => x.scope === s)?.label ?? s),
+              tempoLabel: BAUTEMPO[tempo].label,
+              kosten: r.kosten,
+              bauzeit: r.bauzeit,
+            })
             onClose()
           }}
         >

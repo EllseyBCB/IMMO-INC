@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { gameDate } from '../../lib/format'
-import { portfolioWert, useGame } from '../../state/game'
+import { euro, gameDate } from '../../lib/format'
+import { portfolioWert, useGame, type OwnedProperty } from '../../state/game'
 import { useMessages } from '../../state/messages'
+import { Modal } from '../../components/ui'
+import BautraegerModal, { type BeauftragtInfo } from '../portfolio/BautraegerModal'
 import { CONTACTS, getContact, type Contact } from './contacts'
 import { frageKontakt, type GameContext } from '../../lib/ai'
 
@@ -93,9 +95,34 @@ function ChatView({ contact, onBack }: { contact: Contact; onBack: () => void })
   const game = useGame()
   const [text, setText] = useState('')
   const [tippt, setTippt] = useState(false)
+  const [renoProperty, setRenoProperty] = useState<OwnedProperty | null>(null)
+  const [pickerOffen, setPickerOffen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const thread = threads[contact.id] ?? []
+  const istBautraeger = contact.id === 'bautraeger'
+  const renovierbar = game.owned.filter((o) => o.renovierung?.status !== 'in_arbeit')
+
+  function starteRenovierung() {
+    if (game.owned.length === 0) {
+      addContact('bautraeger', 'Du brauchst erst eine eigene Immobilie, die ich anpacken kann 😉 Kauf dir was auf dem Markt, dann leg ich los.')
+      return
+    }
+    if (renovierbar.length === 0) {
+      addContact('bautraeger', 'An deinen Objekten arbeite ich doch schon — lass mich die erst fertig machen. 😄')
+      return
+    }
+    if (renovierbar.length === 1) setRenoProperty(renovierbar[0])
+    else setPickerOffen(true)
+  }
+
+  function nachBeauftragung(info: BeauftragtInfo) {
+    addPlayer('bautraeger', `Bitte „${info.titel}" renovieren: ${info.gewerke.join(', ')} — ${info.tempoLabel}.`)
+    addContact(
+      'bautraeger',
+      `Top! Kostenvoranschlag ${euro(info.kosten)}, fertig in ${info.bauzeit} ${info.bauzeit === 1 ? 'Monat' : 'Monaten'}. Meine Truppe rückt an. 🛠️`,
+    )
+  }
 
   useEffect(() => {
     ensureBegruessung(contact.id)
@@ -188,6 +215,18 @@ function ChatView({ contact, onBack }: { contact: Contact; onBack: () => void })
         </div>
       )}
 
+      {/* Aktion: Renovierung direkt beim Bauträger beauftragen */}
+      {istBautraeger && (
+        <div className="border-t border-slate-200 bg-white px-3 pt-2">
+          <button
+            onClick={starteRenovierung}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-400 to-orange-600 py-2.5 text-sm font-bold text-white shadow-soft transition active:scale-[0.98]"
+          >
+            🔧 Renovierung beauftragen
+          </button>
+        </div>
+      )}
+
       {/* Eingabe */}
       <div className="flex items-center gap-2 border-t border-slate-200 bg-white px-3 py-2">
         <input
@@ -208,6 +247,34 @@ function ChatView({ contact, onBack }: { contact: Contact; onBack: () => void })
           ↑
         </button>
       </div>
+
+      {/* Objekt-Auswahl für die Renovierung */}
+      <Modal open={pickerOffen} onClose={() => setPickerOffen(false)} title="Welche Immobilie renovieren?">
+        <div className="space-y-2">
+          {renovierbar.map((o) => (
+            <button
+              key={o.uid}
+              onClick={() => {
+                setRenoProperty(o)
+                setPickerOffen(false)
+              }}
+              className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-2 text-left transition hover:border-brand-300 hover:bg-slate-50"
+            >
+              <img src={o.property.bilder[0]} alt="" className="h-12 w-16 shrink-0 rounded-lg object-cover" />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-ink-900">{o.property.titel}</div>
+                <div className="text-xs text-ink-500">
+                  {o.property.stadtteil}, {o.property.stadt}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </Modal>
+
+      {renoProperty && (
+        <BautraegerModal o={renoProperty} onClose={() => setRenoProperty(null)} onBeauftragt={nachBeauftragung} />
+      )}
     </div>
   )
 }
