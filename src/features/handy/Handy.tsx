@@ -7,6 +7,7 @@ import BautraegerModal, { type BeauftragtInfo } from '../portfolio/BautraegerMod
 import { CONTACTS, getContact, type Contact } from './contacts'
 import { frageKontakt, type GameContext } from '../../lib/ai'
 import VermietungApp from './VermietungApp'
+import BautraegerApp from './BautraegerApp'
 
 export default function Handy() {
   const [offen, setOffen] = useState<string | null>(null)
@@ -28,6 +29,8 @@ export default function Handy() {
                 <ChatView contact={contact} onBack={() => setOffen(null)} />
               ) : appOffen === 'vermietung' ? (
                 <VermietungApp onClose={() => setAppOffen(null)} />
+              ) : appOffen === 'bautraeger' ? (
+                <BautraegerApp onClose={() => setAppOffen(null)} />
               ) : (
                 <HomeScreen onOpen={setOffen} onOpenApp={setAppOffen} />
               )}
@@ -58,17 +61,22 @@ function HomeScreen({ onOpen, onOpenApp }: { onOpen: (id: string) => void; onOpe
       <StatusBar />
 
       {/* App-Kacheln */}
-      <div className="px-5 pb-1 pt-2">
+      <div className="grid grid-cols-2 gap-2 px-5 pb-1 pt-2">
         <button
           onClick={() => onOpenApp('vermietung')}
-          className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-600 p-3 text-left text-white shadow-md transition active:scale-[0.99]"
+          className="flex flex-col gap-1 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-3 text-left text-white shadow-md transition active:scale-[0.99]"
         >
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/20 text-2xl">🔑</span>
-          <span className="flex-1">
-            <span className="block text-sm font-black">Vermietung</span>
-            <span className="block text-[11px] text-white/85">Mieter finden, verhandeln & auswählen</span>
-          </span>
-          <span className="text-white/70">›</span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/20 text-xl">🔑</span>
+          <span className="text-sm font-black">Vermietung</span>
+          <span className="text-[10px] leading-tight text-white/85">Mieter finden & verhandeln</span>
+        </button>
+        <button
+          onClick={() => onOpenApp('bautraeger')}
+          className="flex flex-col gap-1 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 p-3 text-left text-white shadow-md transition active:scale-[0.99]"
+        >
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/20 text-xl">🏗️</span>
+          <span className="text-sm font-black">Bauträger</span>
+          <span className="text-[10px] leading-tight text-white/85">Angebote holen & feilschen</span>
         </button>
       </div>
 

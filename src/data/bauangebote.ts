@@ -11,7 +11,14 @@ export interface Bauangebot {
   bauzeit: number // Monate (Stil-abhängig)
   angebot: number // aktueller Preis auf dem Tisch
   geduld: number
+  runden: number // geführte Verhandlungsrunden (mehr = besserer Preis)
   status: 'offen' | 'einig' | 'abgelehnt'
+}
+
+// Je mehr Runden verhandelt wurde, desto tiefer geht der Bauträger mit dem Preis.
+const MAX_BONUS = 0.15
+function verhandlungsBonus(runden: number) {
+  return Math.min(MAX_BONUS, runden * 0.035)
 }
 
 const FIRMEN = [
@@ -57,7 +64,8 @@ function ausStil(s: StilVorlage, baseKosten: number, baseBauzeit: number, i: num
     minPreis,
     bauzeit,
     angebot: preis,
-    geduld: 2,
+    geduld: 3,
+    runden: 0,
     status: 'offen',
   }
 }
@@ -94,28 +102,29 @@ const KNAPP = [
 /** Der Bauträger reagiert auf einen gebotenen Preis (du drückst runter). */
 export function verhandleBau(b: Bauangebot, gebot: number): BauReaktion {
   const spielerNachricht = `Ich zahle dafür ${gebot.toLocaleString('de-DE')} €.`
-  const copy = { ...b }
+  // Bonus aus bisherigen Runden: die Untergrenze sinkt mit der Verhandlung.
+  const effektiverMin = Math.round(b.minPreis * (1 - verhandlungsBonus(b.runden)))
+  const copy = { ...b, runden: b.runden + 1 }
 
   if (gebot >= b.angebot) {
-    // Du bietest so viel oder mehr als der Preis — er nimmt seinen Preis.
     return { angebot: copy, spielerNachricht, bauNachricht: `Gern, ${b.angebot.toLocaleString('de-DE')} € und es ist deins.` }
   }
-  if (gebot >= b.minPreis) {
+  if (gebot >= effektiverMin) {
     copy.angebot = gebot
-    const knapp = gebot < b.minPreis * 1.06
+    const knapp = gebot < effektiverMin * 1.06
     return { angebot: copy, spielerNachricht, bauNachricht: pick(knapp ? KNAPP : JA) }
   }
-  // unter der Schmerzgrenze
+  // unter der (aktuellen) Schmerzgrenze
   copy.geduld = b.geduld - 1
   if (copy.geduld <= 0) {
     copy.status = 'abgelehnt'
     return { angebot: copy, spielerNachricht, bauNachricht: 'Sorry, dafür steh ich morgens nicht auf. Ich bin raus.' }
   }
-  copy.angebot = b.minPreis
+  copy.angebot = effektiverMin
   return {
     angebot: copy,
     spielerNachricht,
-    bauNachricht: `So günstig geht's nicht. Unter ${b.minPreis.toLocaleString('de-DE')} € läuft bei mir nichts.`,
+    bauNachricht: `Zäh, zäh… ${gebot.toLocaleString('de-DE')} € sind zu wenig. Aber ${effektiverMin.toLocaleString('de-DE')} € — das wäre mein letztes Wort.`,
   }
 }
 

@@ -5,24 +5,18 @@ import { monatlicheMiete, monatlicheRaten, portfolioWert, renoRestMs, schulden, 
 import { Badge, Button, Card, Stat } from '../../components/ui'
 import { dauer, euro, gameDate } from '../../lib/format'
 import { zustandLabel, zustandTone } from '../markt/propertyUtil'
-import BautraegerModal from './BautraegerModal'
 import VerkaufModal from './VerkaufModal'
-import VermietenModal from './VermietenModal'
 
 export default function Portfolio() {
   const owned = useGame((s) => s.owned)
-  const [renoUid, setRenoUid] = useState<string | null>(null)
   // Verkauf hält eine Momentaufnahme: nach dem Verkauf verschwindet das Objekt
   // aus `owned`, das Ergebnis-Fenster soll aber sichtbar bleiben.
   const [verkaufObjekt, setVerkaufObjekt] = useState<OwnedProperty | null>(null)
-  const [vermietObjekt, setVermietObjekt] = useState<OwnedProperty | null>(null)
 
   const wert = portfolioWert(owned)
   const debt = schulden(owned)
   const raten = monatlicheRaten(owned)
   const miete = monatlicheMiete(owned)
-
-  const renoObjekt = owned.find((o) => o.uid === renoUid) ?? null
 
   return (
     <div>
@@ -45,40 +39,29 @@ export default function Portfolio() {
             <Stat label="Miete − Rate / M" value={euro(miete - raten)} tone={miete - raten >= 0 ? 'up' : 'down'} />
           </div>
 
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-brand-50/70 px-4 py-2 text-xs text-brand-700">
+            <span>📱</span>
+            <span>
+              <strong>Vermieten &amp; Renovieren</strong> läuft jetzt über dein <Link to="/handy" className="font-bold underline">Handy</Link> —
+              dort verhandelst du mit Mietern und Bauträgern.
+            </span>
+          </div>
+
           <div className="mt-5 space-y-4">
             {owned.map((o) => (
-              <ObjektKarte
-                key={o.uid}
-                o={o}
-                onRenovieren={() => setRenoUid(o.uid)}
-                onVerkaufen={() => setVerkaufObjekt(o)}
-                onVermieten={() => setVermietObjekt(o)}
-              />
+              <ObjektKarte key={o.uid} o={o} onVerkaufen={() => setVerkaufObjekt(o)} />
             ))}
           </div>
         </>
       )}
 
-      {/* Modals immer an gleicher Baum-Position — bleiben über den 1→0-Übergang stabil */}
-      {renoObjekt && <BautraegerModal o={renoObjekt} onClose={() => setRenoUid(null)} />}
       {verkaufObjekt && <VerkaufModal o={verkaufObjekt} onClose={() => setVerkaufObjekt(null)} />}
-      {vermietObjekt && <VermietenModal o={vermietObjekt} onClose={() => setVermietObjekt(null)} />}
     </div>
   )
 }
 
-function ObjektKarte({
-  o,
-  onRenovieren,
-  onVerkaufen,
-  onVermieten,
-}: {
-  o: OwnedProperty
-  onRenovieren: () => void
-  onVerkaufen: () => void
-  onVermieten: () => void
-}) {
-  const { cash, renovierungBeschleunigen, setNutzung } = useGame()
+function ObjektKarte({ o, onVerkaufen }: { o: OwnedProperty; onVerkaufen: () => void }) {
+  const { cash, renovierungBeschleunigen } = useGame()
   const p = o.property
   const reno = o.renovierung
   const inArbeit = reno?.status === 'in_arbeit'
@@ -113,18 +96,15 @@ function ObjektKarte({
             <Stat label="Akt. Wert" value={euro(o.aktuellerWert)} />
             <Stat label="Restschuld" value={euro(o.restschuld)} tone="down" />
             <Stat label="Rate / M" value={euro(o.finanzierung.monatsrate)} />
-            <Stat
-              label="Buchgewinn"
-              value={euro(gewinnGeschaetzt)}
-              tone={gewinnGeschaetzt >= 0 ? 'up' : 'down'}
-            />
+            <Stat label="Buchgewinn" value={euro(gewinnGeschaetzt)} tone={gewinnGeschaetzt >= 0 ? 'up' : 'down'} />
           </div>
 
           {inArbeit && reno && (
             <div className="mt-3 rounded-xl bg-amber-50 p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-amber-800">
-                  🏗️ Baustelle — fertig in <span className="tabular-nums">{dauer(renoRestMs(o))}</span>
+                  🏗️ Baustelle{reno.bautraeger ? ` (${reno.bautraeger})` : ''} — fertig in{' '}
+                  <span className="tabular-nums">{dauer(renoRestMs(o))}</span>
                 </span>
                 <span className="text-[11px] font-medium text-amber-700">+{euro(reno.wertsteigerung)} Wert</span>
               </div>
@@ -140,31 +120,17 @@ function ObjektKarte({
 
           {o.nutzung === 'vermietet' && (
             <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2">
-              <span className="text-sm font-semibold text-emerald-800">🔑 Vermietet</span>
+              <span className="text-sm font-semibold text-emerald-800">
+                🔑 {o.mieterName ?? 'Vermietet'}
+                {o.mieterRisiko ? <span className="ml-1 text-[11px] font-medium text-emerald-600">· Risiko {o.mieterRisiko}</span> : null}
+              </span>
               <span className="text-sm font-bold tabular-nums text-emerald-700">
-                {euro(o.kaltmiete)}<span className="text-xs font-medium text-emerald-600">/Monat Miete</span>
+                {euro(o.kaltmiete)}<span className="text-xs font-medium text-emerald-600">/Monat</span>
               </span>
             </div>
           )}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={onRenovieren} disabled={inArbeit}>
-              🏗️ Bauträger
-            </Button>
-            {o.nutzung === 'vermietet' ? (
-              <>
-                <Button variant="outline" onClick={onVermieten} disabled={inArbeit}>
-                  ✏️ Miete ändern
-                </Button>
-                <Button variant="ghost" onClick={() => setNutzung(o.uid, 'leer')} disabled={inArbeit}>
-                  ⏸️ Beenden
-                </Button>
-              </>
-            ) : (
-              <Button variant="outline" onClick={onVermieten} disabled={inArbeit}>
-                🔑 Vermieten
-              </Button>
-            )}
             <Button variant="success" onClick={onVerkaufen} disabled={inArbeit}>
               💰 Verkaufen
             </Button>

@@ -313,6 +313,12 @@ function BauChat({
         </div>
       </div>
 
+      {b.runden > 0 && (
+        <div className="mb-2 rounded-lg bg-brand-50 px-3 py-1 text-center text-[11px] font-semibold text-brand-700">
+          🤝 Runde {b.runden} — je länger du feilschst, desto tiefer der Preis
+        </div>
+      )}
+
       <div ref={scrollRef} className="no-scrollbar max-h-[38vh] space-y-2 overflow-y-auto rounded-xl bg-slate-50 p-3">
         {thread.map((m, i) => (
           <div key={i} className={`flex ${m.from === 'spieler' ? 'justify-end' : 'justify-start'}`}>

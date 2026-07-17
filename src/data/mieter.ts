@@ -11,7 +11,15 @@ export interface Mieter {
   maxMiete: number // absolute Schmerzgrenze (verdeckt)
   angebot: number // aktuelles Angebot auf dem Tisch
   geduld: number // wie oft man noch über die Grenze fordern kann
+  runden: number // Anzahl geführter Verhandlungsrunden (mehr = besser)
   status: 'offen' | 'einig' | 'abgelehnt'
+}
+
+// Je mehr Runden verhandelt wurde, desto mehr gibt der Mieter beim Preis nach
+// (die verdeckte Schmerzgrenze steigt). Belohnt intensives Verhandeln.
+const MAX_BONUS = 0.15
+function verhandlungsBonus(runden: number) {
+  return Math.min(MAX_BONUS, runden * 0.035)
 }
 
 const VORNAMEN = [
@@ -71,7 +79,8 @@ function ausProfil(p: ProfilVorlage, markt: number, i: number): Mieter {
     wunschMiete,
     maxMiete,
     angebot: wunschMiete,
-    geduld: 2,
+    geduld: 3,
+    runden: 0,
     status: 'offen',
   }
 }
@@ -111,17 +120,19 @@ const KNAPP = [
 /** Der Mieter reagiert auf eine geforderte Kaltmiete. */
 export function verhandle(m: Mieter, forderung: number): Reaktion {
   const spielerNachricht = `Ich hätte gern ${forderung.toLocaleString('de-DE')} € Kaltmiete.`
-  const copy = { ...m }
+  // Bonus aus bisherigen Runden: die Schmerzgrenze steigt mit der Verhandlung.
+  const effektiverMax = Math.round(m.maxMiete * (1 + verhandlungsBonus(m.runden)))
+  const copy = { ...m, runden: m.runden + 1 }
 
   if (forderung <= m.wunschMiete) {
     copy.angebot = forderung
     return { mieter: copy, spielerNachricht, mieterNachricht: pick(ZUSAGE) }
   }
-  if (forderung <= m.maxMiete) {
+  if (forderung <= effektiverMax) {
     copy.angebot = forderung
     return { mieter: copy, spielerNachricht, mieterNachricht: pick(KNAPP) }
   }
-  // über der Schmerzgrenze
+  // über der (aktuellen) Schmerzgrenze
   copy.geduld = m.geduld - 1
   if (copy.geduld <= 0) {
     copy.status = 'abgelehnt'
@@ -131,11 +142,11 @@ export function verhandle(m: Mieter, forderung: number): Reaktion {
       mieterNachricht: `Das sprengt mein Budget leider komplett. Ich ziehe meine Bewerbung zurück. Viel Erfolg!`,
     }
   }
-  copy.angebot = m.maxMiete
+  copy.angebot = effektiverMax
   return {
     mieter: copy,
     spielerNachricht,
-    mieterNachricht: `So viel ist echt nicht drin. Mehr als ${m.maxMiete.toLocaleString('de-DE')} € könnte ich nicht zahlen.`,
+    mieterNachricht: `Puh, ${forderung.toLocaleString('de-DE')} € sind zu viel. Aber gut, ${effektiverMax.toLocaleString('de-DE')} € könnte ich mir noch überlegen…`,
   }
 }
 

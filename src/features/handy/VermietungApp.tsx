@@ -12,6 +12,7 @@ function marktMiete(kaltmieteMarkt: number, kaltmiete: number, flaeche: number) 
 export default function VermietungApp({ onClose }: { onClose: () => void }) {
   const owned = useGame((s) => s.owned)
   const vermieten = useGame((s) => s.vermieten)
+  const setNutzung = useGame((s) => s.setNutzung)
   const { kandidaten, chats, sucheMieter, fordern, ablehnen, aufraeumen } = useVermietung()
 
   const [uid, setUid] = useState<string | null>(null)
@@ -132,9 +133,17 @@ export default function VermietungApp({ onClose }: { onClose: () => void }) {
               </div>
 
               {o.nutzung === 'vermietet' ? (
-                <div className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                  🔑 {o.mieterName ?? 'Mieter'} zahlt <strong>{euro(o.kaltmiete)}/M</strong>
-                  {o.mieterRisiko ? ` · Risiko ${o.mieterRisiko}` : ''}
+                <div className="mt-2">
+                  <div className="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    🔑 {o.mieterName ?? 'Mieter'} zahlt <strong>{euro(o.kaltmiete)}/M</strong>
+                    {o.mieterRisiko ? ` · Risiko ${o.mieterRisiko}` : ''}
+                  </div>
+                  <button
+                    onClick={() => setNutzung(o.uid, 'leer')}
+                    className="mt-1 w-full py-1 text-[11px] font-semibold text-rose-500"
+                  >
+                    Mietverhältnis beenden
+                  </button>
                 </div>
               ) : inArbeit ? (
                 <div className="mt-2 text-xs text-ink-400">Erst Renovierung abschließen.</div>
@@ -210,6 +219,12 @@ function ChatVerhandlung({
           <div className="truncate text-[11px] text-ink-500">{mieter.beruf}</div>
         </div>
       </div>
+
+      {mieter.runden > 0 && (
+        <div className="bg-brand-50 px-3 py-1 text-center text-[11px] font-semibold text-brand-700">
+          🤝 Runde {mieter.runden} — je länger du verhandelst, desto mehr Miete ist drin
+        </div>
+      )}
 
       <div ref={scrollRef} className="no-scrollbar flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {thread.map((m, i) => (
