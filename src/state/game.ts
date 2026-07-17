@@ -5,7 +5,7 @@ import { berechneRenovierung } from '../data/renovation'
 import type { Risiko } from '../data/mieter'
 
 // Echtzeit-Modell (Clash-Royale-Stil): Zeit läuft real, nicht per Klick.
-export const MS_PRO_MONAT = 60000 // 1 Spiel-Monat = 60 s Echtzeit
+export const MS_PRO_MONAT = 4 * 60 * 60 * 1000 // 1 Spiel-Monat = 4 Echt-Stunden
 const MAX_ELAPSED_MONATE = 12 // Offline-Fortschritt gedeckelt (kein Uralt-Sprung)
 
 export interface Finanzierung {
