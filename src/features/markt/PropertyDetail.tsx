@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
 import type { Property } from '../../data/types'
 import { ladeMarkt } from '../../data/openimmo'
 import { useCustomListings } from '../../state/customListings'
@@ -9,11 +8,11 @@ import { bonitaet, finanzierungsAngebot, kaufnebenkosten } from '../../lib/finan
 import { Badge, Button, Card, Modal, Slider, Stat } from '../../components/ui'
 import { euro, area, pct } from '../../lib/format'
 import { mietrendite, zustandLabel, zustandTone } from './propertyUtil'
+import type { PhoneNav } from '../phone/nav'
 
-export default function PropertyDetail() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { cash, owned, lebenssituation, kaufen, verkauft } = useGame()
+export default function PropertyDetail({ objektId, nav }: { objektId: string; nav: PhoneNav }) {
+  const id = objektId
+  const { cash, owned, lebenssituation, kaufen, verkauft, recherche } = useGame()
   const [alle, setAlle] = useState<Property[] | null>(null)
   const [bild, setBild] = useState(0)
   const [kaufOffen, setKaufOffen] = useState(false)
@@ -47,22 +46,21 @@ export default function PropertyDetail() {
     return (
       <div className="rounded-2xl bg-white p-10 text-center shadow-card">
         <p className="text-ink-500">Objekt nicht gefunden.</p>
-        <Link to="/" className="mt-3 inline-block text-brand-600">
+        <button onClick={() => nav.open('immobilien')} className="mt-3 inline-block text-brand-600">
           ← Zurück zum Markt
-        </Link>
+        </button>
       </div>
     )
   }
 
   const nk = kaufnebenkosten(p.kaufpreis, p.bundesland, true)
   const rendite = mietrendite(p.kaltmieteMarkt, p.kaufpreis)
+  const analysiert = recherche.includes('analyse:' + p.id)
+  const diff = (p.marktwert - p.kaufpreis) / p.kaufpreis
+  const einschaetzung = diff > 0.05 ? 'Unter Marktwert — guter Deal 👍' : diff < -0.05 ? 'Über Marktwert — Vorsicht ⚠️' : 'Fair bepreist'
 
   return (
     <div>
-      <button onClick={() => navigate(-1)} className="mb-3 text-sm font-semibold text-ink-500 hover:text-ink-700">
-        ← Zurück
-      </button>
-
       <div className="grid gap-5 lg:grid-cols-5">
         {/* Galerie */}
         <div className="lg:col-span-3">
@@ -109,12 +107,33 @@ export default function PropertyDetail() {
               <Stat label="Baujahr" value={String(p.baujahr)} />
               <Stat label="Miete (Markt)" value={`${euro(p.kaltmieteMarkt)}/M`} />
               {p.grundstueck ? <Stat label="Grundstück" value={area(p.grundstueck)} /> : null}
-              <Stat label="Brutto-Rendite" value={pct(rendite)} tone="up" />
             </div>
+
+            {/* Deal-Analyse — erst nach Recherche im Internet sichtbar */}
+            {analysiert ? (
+              <div className="mt-4 rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
+                <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Deal-Analyse</div>
+                <div className="mt-0.5 text-sm font-bold text-emerald-800">{einschaetzung}</div>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <Stat label="Brutto-Rendite" value={pct(rendite)} tone="up" />
+                  <Stat label="Marktwert" value={euro(p.marktwert)} />
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => nav.giggle('ImmoScout ' + p.titel)}
+                className="mt-4 w-full rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/60 p-3 text-center transition hover:bg-brand-50"
+              >
+                <div className="text-sm font-bold text-brand-700">🔍 Deal noch nicht recherchiert</div>
+                <div className="mt-0.5 text-xs text-ink-500">
+                  Rendite & Marktwert erst bei Giggle recherchieren (ImmoScout24)
+                </div>
+              </button>
+            )}
 
             <div className="mt-5">
               {schonGekauft ? (
-                <Button variant="outline" className="w-full" onClick={() => navigate('/portfolio')}>
+                <Button variant="outline" className="w-full" onClick={() => nav.open('portfolio')}>
                   ✓ Bereits in deinem Portfolio
                 </Button>
               ) : (
@@ -158,7 +177,7 @@ export default function PropertyDetail() {
           onConfirm={(fin, mitMakler) => {
             kaufen(p, fin, mitMakler)
             setKaufOffen(false)
-            navigate('/portfolio')
+            nav.open('portfolio')
           }}
         />
       )}

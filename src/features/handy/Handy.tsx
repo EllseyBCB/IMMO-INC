@@ -6,110 +6,39 @@ import { Modal } from '../../components/ui'
 import BautraegerModal, { type BeauftragtInfo } from '../portfolio/BautraegerModal'
 import { CONTACTS, getContact, type Contact } from './contacts'
 import { frageKontakt, type GameContext } from '../../lib/ai'
-import VermietungApp from './VermietungApp'
-import BautraegerApp from './BautraegerApp'
-import BankingApp from './BankingApp'
-import ShopApp from './ShopApp'
-import BoerseApp from './BoerseApp'
 
-export default function Handy() {
+/** Die Nachrichten-App (Kontaktliste + Chat). */
+export default function NachrichtenApp({ onClose }: { onClose: () => void }) {
   const [offen, setOffen] = useState<string | null>(null)
-  const [appOffen, setAppOffen] = useState<string | null>(null)
+  const threads = useMessages((s) => s.threads)
   const contact = offen ? getContact(offen) : null
 
-  return (
-    <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-black tracking-tight text-ink-900">Dein Handy</h1>
-        <p className="text-sm text-ink-500">Kontakte anschreiben und Mieter verwalten.</p>
-      </div>
-
-      <div className="flex justify-center">
-        <div className="w-full max-w-[380px]">
-          <div className="rounded-[2.5rem] border-[10px] border-ink-900 bg-ink-900 shadow-2xl">
-            <div className="relative h-[640px] overflow-hidden rounded-[2rem] bg-gradient-to-b from-slate-50 to-white">
-              {contact ? (
-                <ChatView contact={contact} onBack={() => setOffen(null)} />
-              ) : appOffen === 'vermietung' ? (
-                <VermietungApp onClose={() => setAppOffen(null)} />
-              ) : appOffen === 'bautraeger' ? (
-                <BautraegerApp onClose={() => setAppOffen(null)} />
-              ) : appOffen === 'banking' ? (
-                <BankingApp onClose={() => setAppOffen(null)} />
-              ) : appOffen === 'shop' ? (
-                <ShopApp onClose={() => setAppOffen(null)} />
-              ) : appOffen === 'boerse' ? (
-                <BoerseApp onClose={() => setAppOffen(null)} />
-              ) : (
-                <HomeScreen onOpen={setOffen} onOpenApp={setAppOffen} />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AppKachel({ emoji, label, farbe, onClick }: { emoji: string; label: string; farbe: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 rounded-2xl bg-gradient-to-br ${farbe} px-2 py-3 text-white shadow-md transition active:scale-[0.97]`}
-    >
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/20 text-xl">{emoji}</span>
-      <span className="text-[11px] font-black">{label}</span>
-    </button>
-  )
-}
-
-function StatusBar() {
-  const monthIndex = useGame((s) => s.monthIndex)
-  return (
-    <div className="relative flex items-center justify-between px-6 pt-3 pb-1 text-[11px] font-semibold text-ink-700">
-      <span>{gameDate(monthIndex).split(' ')[0]}</span>
-      <div className="absolute left-1/2 top-2 h-5 w-24 -translate-x-1/2 rounded-full bg-ink-900" />
-      <span>📶 🔋</span>
-    </div>
-  )
-}
-
-function HomeScreen({ onOpen, onOpenApp }: { onOpen: (id: string) => void; onOpenApp: (app: string) => void }) {
-  const threads = useMessages((s) => s.threads)
+  if (contact) return <ChatView contact={contact} onBack={() => setOffen(null)} />
 
   return (
-    <div className="flex h-full flex-col">
-      <StatusBar />
-
-      {/* App-Kacheln */}
-      <div className="grid grid-cols-4 gap-2 px-4 pb-1 pt-2">
-        <AppKachel emoji="🔑" label="Vermietung" farbe="from-emerald-400 to-emerald-600" onClick={() => onOpenApp('vermietung')} />
-        <AppKachel emoji="🏗️" label="Bauträger" farbe="from-orange-400 to-orange-600" onClick={() => onOpenApp('bautraeger')} />
-        <AppKachel emoji="🏦" label="Banking" farbe="from-brand-500 to-brand-700" onClick={() => onOpenApp('banking')} />
-        <AppKachel emoji="📈" label="Börse" farbe="from-indigo-500 to-blue-600" onClick={() => onOpenApp('boerse')} />
-        <AppKachel emoji="🛍️" label="Shop" farbe="from-violet-500 to-fuchsia-600" onClick={() => onOpenApp('shop')} />
+    <div className="flex h-full flex-col bg-slate-50">
+      <div className="flex items-center gap-2 bg-green-600 px-3 py-2 pt-3 text-white">
+        <button onClick={onClose} className="rounded-lg px-1.5 py-0.5 text-lg" aria-label="Schließen">
+          ✕
+        </button>
+        <span className="text-sm font-bold">Nachrichten</span>
       </div>
 
-      <div className="px-5 pb-2 pt-3">
-        <h2 className="text-lg font-black text-ink-900">Nachrichten</h2>
-      </div>
-      <div className="no-scrollbar flex-1 overflow-y-auto px-3 pb-4">
+      <div className="no-scrollbar flex-1 overflow-y-auto p-2">
         {CONTACTS.map((c) => {
           const thread = threads[c.id] ?? []
           const letzte = thread[thread.length - 1]
           return (
             <button
               key={c.id}
-              onClick={() => onOpen(c.id)}
+              onClick={() => setOffen(c.id)}
               className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-slate-100/70"
             >
               <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br ${c.farbe} text-xl shadow-md`}>
                 {c.emoji}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="truncate text-sm font-bold text-ink-900">{c.name}</span>
-                </div>
+                <div className="truncate text-sm font-bold text-ink-900">{c.name}</div>
                 <div className="truncate text-xs text-ink-500">
                   {letzte ? `${letzte.from === 'player' ? 'Du: ' : ''}${letzte.text}` : c.role}
                 </div>
@@ -119,8 +48,8 @@ function HomeScreen({ onOpen, onOpenApp }: { onOpen: (id: string) => void; onOpe
           )
         })}
       </div>
-      <div className="px-5 pb-4">
-        <div className="rounded-2xl bg-violet-50/70 p-3 text-center text-[11px] text-violet-700/80">
+      <div className="px-4 pb-4 pt-1">
+        <div className="rounded-2xl bg-white/70 p-3 text-center text-[11px] text-ink-500 ring-1 ring-black/5">
           Tipp: Frag die Bank nach deinem Zins, den Bauträger nach Sanierungen oder die Verwaltung nach Mietern.
         </div>
       </div>
@@ -195,7 +124,6 @@ function ChatView({ contact, onBack }: { contact: Contact; onBack: () => void })
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
-      <StatusBar />
       {/* Kontakt-Header */}
       <div className="flex items-center gap-3 border-b border-slate-200 bg-white/80 px-3 py-2 backdrop-blur">
         <button onClick={onBack} className="rounded-lg px-2 py-1 text-lg text-brand-600" aria-label="Zurück">

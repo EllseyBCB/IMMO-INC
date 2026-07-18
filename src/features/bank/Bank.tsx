@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { monatlicheRaten, schulden, useGame } from '../../state/game'
 import { annuitaet, bonitaet } from '../../lib/finanzen'
 import { Card, Slider, Stat } from '../../components/ui'
 import { euro, pct } from '../../lib/format'
+import type { PhoneNav } from '../phone/nav'
 
-export default function Bank() {
+export default function Bank({ nav }: { nav: PhoneNav }) {
   const { cash, owned, lebenssituation } = useGame()
   const bon = bonitaet({
     nettoEinkommen: lebenssituation.nettoEinkommen,
@@ -116,9 +116,9 @@ export default function Bank() {
         {owned.filter((o) => o.restschuld > 0).length === 0 ? (
           <p className="mt-3 text-sm text-ink-500">
             Keine laufenden Darlehen. Finanzierungen schließt du direkt beim Kauf ab —{' '}
-            <Link to="/" className="font-semibold text-brand-600">
+            <button onClick={() => nav.open('immobilien')} className="font-semibold text-brand-600">
               zum Markt
-            </Link>
+            </button>
             .
           </p>
         ) : (

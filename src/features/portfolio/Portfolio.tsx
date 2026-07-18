@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import type { OwnedProperty } from '../../state/game'
 import { monatlicheMiete, monatlicheRaten, portfolioWert, renoRestMs, schulden, skipKosten, useGame } from '../../state/game'
@@ -6,8 +5,9 @@ import { Badge, Button, Card, Stat } from '../../components/ui'
 import { dauer, euro, gameDate } from '../../lib/format'
 import { zustandLabel, zustandTone } from '../markt/propertyUtil'
 import VerkaufModal from './VerkaufModal'
+import type { PhoneNav } from '../phone/nav'
 
-export default function Portfolio() {
+export default function Portfolio({ nav }: { nav: PhoneNav }) {
   const owned = useGame((s) => s.owned)
   // Verkauf hält eine Momentaufnahme: nach dem Verkauf verschwindet das Objekt
   // aus `owned`, das Ergebnis-Fenster soll aber sichtbar bleiben.
@@ -25,9 +25,9 @@ export default function Portfolio() {
           <div className="text-4xl">🗂️</div>
           <h2 className="mt-3 text-lg font-bold text-ink-900">Noch keine Immobilien</h2>
           <p className="mt-1 text-sm text-ink-500">Kauf dein erstes Objekt auf dem Markt und starte dein Imperium.</p>
-          <Link to="/" className="mt-4 inline-block">
-            <Button>Zum Markt</Button>
-          </Link>
+          <div className="mt-4">
+            <Button onClick={() => nav.open('immobilien')}>Zum Markt</Button>
+          </div>
         </div>
       ) : (
         <>
@@ -42,7 +42,7 @@ export default function Portfolio() {
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-brand-50/70 px-4 py-2 text-xs text-brand-700">
             <span>📱</span>
             <span>
-              <strong>Vermieten &amp; Renovieren</strong> läuft jetzt über dein <Link to="/handy" className="font-bold underline">Handy</Link> —
+              <strong>Vermieten &amp; Renovieren</strong> läuft über die Apps <button onClick={() => nav.open('vermietung')} className="font-bold underline">Vermietung</button> und <button onClick={() => nav.open('bautraeger')} className="font-bold underline">Bauträger</button> —
               dort verhandelst du mit Mietern und Bauträgern.
             </span>
           </div>

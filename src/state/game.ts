@@ -96,6 +96,7 @@ export interface GameState {
   depot: DepotPosition[] // Aktien/ETF/Krypto-Positionen
   tagesgeld: number // Sparguthaben (variabel verzinst)
   festgeld: FestgeldPosition[] // feste Anlagen mit Laufzeit
+  recherche: string[] // im Internet freigeschaltete Infos (Gating)
   log: LogEintrag[]
 
   neuesSpiel: (l: Lebenssituation, startkapital: number) => void
@@ -127,6 +128,8 @@ export interface GameState {
   tagesgeldAbheben: (betrag: number) => void
   /** Legt einen Betrag als Festgeld mit fester Laufzeit an. */
   festgeldAnlegen: (betrag: number, laufzeitMonate: number) => void
+  /** Schaltet eine im Internet recherchierte Info frei (Gating). */
+  freischalten: (key: string) => void
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
   /** Springt exakt einen Monat vor (als wären die 4 Echt-Stunden vergangen). */
@@ -152,6 +155,7 @@ function persist(state: GameState) {
       depot: state.depot,
       tagesgeld: state.tagesgeld,
       festgeld: state.festgeld,
+      recherche: state.recherche,
       log: state.log,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
@@ -194,6 +198,7 @@ export const useGame = create<GameState>((set, get) => ({
   depot: [],
   tagesgeld: 0,
   festgeld: [],
+  recherche: [],
   log: [],
 
   neuesSpiel: (l, startkapital) => {
@@ -211,6 +216,7 @@ export const useGame = create<GameState>((set, get) => ({
       depot: [],
       tagesgeld: 0,
       festgeld: [],
+      recherche: [],
       log: [
         {
           month: 0,
@@ -240,6 +246,7 @@ export const useGame = create<GameState>((set, get) => ({
       depot: [],
       tagesgeld: 0,
       festgeld: [],
+      recherche: [],
       log: [],
     })
   },
@@ -533,6 +540,13 @@ export const useGame = create<GameState>((set, get) => ({
         ...s.log,
       ].slice(0, 200),
     })
+    persist(get())
+  },
+
+  freischalten: (key) => {
+    const s = get()
+    if (s.recherche.includes(key)) return
+    set({ recherche: [...s.recherche, key] })
     persist(get())
   },
 

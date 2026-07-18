@@ -1,15 +1,14 @@
-import { Link } from 'react-router-dom'
 import type { Property } from '../../data/types'
 import { Badge } from '../../components/ui'
 import { euro, area, pct } from '../../lib/format'
 import { mietrendite, zustandLabel, zustandTone } from './propertyUtil'
 
-export default function PropertyCard({ p }: { p: Property }) {
+export default function PropertyCard({ p, onOpen }: { p: Property; onOpen: (id: string) => void }) {
   const rendite = mietrendite(p.kaltmieteMarkt, p.kaufpreis)
   return (
-    <Link
-      to={`/objekt/${p.id}`}
-      className="group block overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.04] transition hover:shadow-lg"
+    <button
+      onClick={() => onOpen(p.id)}
+      className="group block w-full overflow-hidden rounded-2xl bg-white text-left shadow-card ring-1 ring-black/[0.04] transition hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
         <img
@@ -47,6 +46,6 @@ export default function PropertyCard({ p }: { p: Property }) {
           <span className="text-xs font-semibold text-emerald-600">{pct(rendite)} Rendite</span>
         </div>
       </div>
-    </Link>
+    </button>
   )
 }

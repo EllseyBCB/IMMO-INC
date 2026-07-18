@@ -6,10 +6,11 @@ import { useCustomListings } from '../../state/customListings'
 import PropertyCard from './PropertyCard'
 import ImportModal from './ImportModal'
 import { euro } from '../../lib/format'
+import type { PhoneNav } from '../phone/nav'
 
 type Sort = 'preis-auf' | 'preis-ab' | 'rendite' | 'potenzial'
 
-export default function Markt() {
+export default function Markt({ nav }: { nav: PhoneNav }) {
   const verkauft = useGame((s) => s.verkauft)
   const custom = useCustomListings((s) => s.objekte)
   const [alle, setAlle] = useState<Property[] | null>(null)
@@ -168,7 +169,7 @@ export default function Markt() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {gefiltert.slice(0, limit).map((p) => (
-              <PropertyCard key={p.id} p={p} />
+              <PropertyCard key={p.id} p={p} onOpen={nav.openObjekt} />
             ))}
           </div>
           {gefiltert.length > limit && (
