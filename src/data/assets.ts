@@ -58,7 +58,7 @@ export function getAsset(id: string): Asset | undefined {
   return ASSETS.find((a) => a.id === id)
 }
 
-/** Aktueller Kurs eines Assets zur Spielzeit t (monthIndex). */
+/** Aktueller Kurs eines Assets zur Spielzeit t (monthIndex) inkl. News-Schocks. */
 export function assetPreis(a: Asset, t: number): number {
   const s = a.seed
   const drift = Math.exp(a.drift * t)
@@ -69,7 +69,7 @@ export function assetPreis(a: Asset, t: number): number {
     0.13 * Math.sin(t * 41.0 * f + s * 3.9) +
     0.1 * Math.sin(t * 150.0 * f + s * 5.1)
   const faktor = 1 + a.vola * osc
-  return Math.max(a.basis * 0.03, a.basis * drift * faktor)
+  return Math.max(a.basis * 0.03, a.basis * drift * faktor * (1 + newsFaktor(a, t)))
 }
 
 /** Prozentuale Kursänderung über die letzte Spanne (Standard ≈ 1 Spiel-Tag). */
@@ -100,4 +100,107 @@ export function depotWert(depot: DepotPosition[], t: number): number {
 /** Investiertes Kapital (Einstandswert) über alle Positionen. */
 export function depotEinstand(depot: DepotPosition[]): number {
   return depot.reduce((sum, p) => sum + p.investiert, 0)
+}
+
+// --- Börsen-News-Events ----------------------------------------------------
+// Rein zeitabhängig & deterministisch: Events werden aus der Spielzeit
+// abgeleitet, damit Kurs, Chart, Depotwert und Vermögen automatisch konsistent
+// sind. Für den Spieler bleibt es unvorhersehbar und fair (kein Save-Scumming).
+
+/** Zeit-Fenster eines News-Events (~12 Echt-Minuten). */
+const NEWS_BUCKET = 0.05
+/** Wahrscheinlichkeit, dass in einem Fenster überhaupt etwas passiert. */
+const NEWS_CHANCE = 0.45
+
+function mulberry32(seed: number) {
+  return function () {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const HEADLINES_POS: Record<AssetKlasse, string[]> = {
+  ETF: ['{n} zieht dank starker Marktbreite an', 'Zuflüsse treiben {n} nach oben', '{n} auf neuem Jahreshoch'],
+  Aktie: ['{n} übertrifft die Erwartungen', 'Analysten stufen {n} hoch', '{n} meldet Rekordgewinn', 'Großauftrag beflügelt {n}', '{n} kündigt Aktienrückkauf an'],
+  Krypto: ['{n} explodiert nach ETF-Gerücht', '{n} rallyt — Anleger im Kaufrausch', 'Prominenter Tweet treibt {n}', '{n} durchbricht wichtige Marke'],
+}
+const HEADLINES_NEG: Record<AssetKlasse, string[]> = {
+  ETF: ['{n} gibt mit dem Gesamtmarkt nach', 'Abflüsse belasten {n}', '{n} rutscht ins Minus'],
+  Aktie: ['{n} enttäuscht die Anleger', 'Gewinnwarnung bei {n}', 'Analysten stufen {n} ab', 'Skandal erschüttert {n}', '{n} verfehlt die Prognosen'],
+  Krypto: ['{n} stürzt nach Hack-Meldung ab', 'Regulierer nehmen {n} ins Visier', 'Panikverkäufe bei {n}', '{n} bricht heftig ein'],
+}
+
+export interface NewsEvent {
+  assetId: string
+  positiv: boolean
+  /** Kurs-Schock (z. B. +0.12 / -0.09). */
+  schock: number
+  /** Betrag der Änderung in Prozent. */
+  prozent: number
+  /** Dauer des Ausklingens (in Monaten). */
+  dauer: number
+  /** Startzeit (monthIndex). */
+  startT: number
+  text: string
+}
+
+/** Deterministisches Event für ein Zeitfenster k (oder null). */
+function bucketEvent(k: number): NewsEvent | null {
+  if (k < 0) return null
+  const rng = mulberry32(((k + 1) * 0x9e3779b1) >>> 0)
+  if (rng() > NEWS_CHANCE) return null
+  const a = ASSETS[Math.floor(rng() * ASSETS.length)]
+  const positiv = rng() < 0.55
+  const r = rng()
+  const mag =
+    a.klasse === 'ETF' ? 0.02 + r * 0.03 : a.klasse === 'Aktie' ? 0.04 + r * 0.08 : 0.08 + r * 0.22
+  const dauer = 0.1 + rng() * 0.25
+  const vorlagen = (positiv ? HEADLINES_POS : HEADLINES_NEG)[a.klasse]
+  const text = vorlagen[Math.floor(rng() * vorlagen.length)].replace('{n}', a.name)
+  return {
+    assetId: a.id,
+    positiv,
+    schock: (positiv ? 1 : -1) * mag,
+    prozent: mag * 100,
+    dauer,
+    startT: k * NEWS_BUCKET,
+    text,
+  }
+}
+
+/** Summierter News-Effekt auf ein Asset zur Zeit t (klingt linear aus). */
+export function newsFaktor(a: Asset, t: number): number {
+  const k0 = Math.floor(t / NEWS_BUCKET)
+  let sum = 0
+  for (let k = k0; k >= k0 - 10 && k >= 0; k--) {
+    const ev = bucketEvent(k)
+    if (!ev || ev.assetId !== a.id) continue
+    const dt = t - ev.startT
+    if (dt < 0 || dt > ev.dauer) continue
+    sum += ev.schock * (1 - dt / ev.dauer)
+  }
+  return Math.max(-0.5, Math.min(0.6, sum))
+}
+
+/** 'pos' | 'neg' | null — ob ein Asset gerade ein aktives Event hat (für Badge). */
+export function assetEventBadge(a: Asset, t: number): 'pos' | 'neg' | null {
+  const f = newsFaktor(a, t)
+  if (f > 0.01) return 'pos'
+  if (f < -0.01) return 'neg'
+  return null
+}
+
+/** Die letzten n Schlagzeilen bis zur Zeit t (neueste zuerst). */
+export function aktuelleNews(t: number, n = 6): (NewsEvent & { aktiv: boolean })[] {
+  const k0 = Math.floor(t / NEWS_BUCKET)
+  const out: (NewsEvent & { aktiv: boolean })[] = []
+  for (let k = k0; k >= 0 && out.length < n; k--) {
+    const ev = bucketEvent(k)
+    if (!ev || ev.startT > t) continue
+    out.push({ ...ev, aktiv: t <= ev.startT + ev.dauer })
+  }
+  return out
 }

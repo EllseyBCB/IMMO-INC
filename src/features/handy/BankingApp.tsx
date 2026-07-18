@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import {
+  FESTGELD_STAFFEL,
+  TAGESGELD_ZINS,
   gesamtVermoegen,
   portfolioWert,
   schulden,
+  sparGuthaben,
   useGame,
   type OwnedProperty,
 } from '../../state/game'
@@ -19,6 +22,7 @@ const ART: Record<string, string> = {
   kosten: '📉',
   gehalt: '💶',
   invest: '📈',
+  zinsen: '🪙',
   info: 'ℹ️',
 }
 
@@ -36,13 +40,14 @@ function iban(seed: string): string {
 
 export default function BankingApp({ onClose }: { onClose: () => void }) {
   const game = useGame()
-  const [view, setView] = useState<'uebersicht' | 'privat' | 'kredite'>('uebersicht')
+  const [view, setView] = useState<'uebersicht' | 'privat' | 'kredite' | 'sparen'>('uebersicht')
 
-  const { cash, owned, monthIndex, depot } = game
+  const { cash, owned, monthIndex, depot, tagesgeld, festgeld } = game
   const debt = schulden(owned)
   const wert = portfolioWert(owned)
   const investWert = depotWert(depot, monthIndex)
-  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
+  const spar = sparGuthaben(tagesgeld, festgeld)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex, spar)
   const kredite = owned.filter((o) => o.restschuld > 0)
 
   return (
@@ -85,6 +90,15 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
                 onClick={() => setView('privat')}
               />
               <KontoZeile
+                emoji="🪙"
+                farbe="bg-amber-500"
+                titel="Sparen"
+                unter="Tagesgeld & Festgeld"
+                iban={iban('sparen')}
+                saldo={spar}
+                onClick={() => setView('sparen')}
+              />
+              <KontoZeile
                 emoji="🏠"
                 farbe="bg-rose-500"
                 titel="Immobilienkredite"
@@ -104,6 +118,7 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
 
       {view === 'privat' && <PrivatKonto />}
       {view === 'kredite' && <KrediteKonto kredite={kredite} debt={debt} wert={wert} />}
+      {view === 'sparen' && <SparKonto />}
     </div>
   )
 }
@@ -151,10 +166,10 @@ interface Posten {
 }
 
 function PrivatKonto() {
-  const { cash, owned, log, lebenssituation, gekaufteLuxus, depot, monthIndex } = useGame()
+  const { cash, owned, log, lebenssituation, gekaufteLuxus, depot, monthIndex, tagesgeld, festgeld } = useGame()
   const netto = lebenssituation.nettoEinkommen
   const fix = lebenssituation.fixkosten
-  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex, sparGuthaben(tagesgeld, festgeld))
   const sonder = sonderausgabenMonat(vermoegen, gekaufteLuxus)
   const ls = lebensstandard(vermoegen, gekaufteLuxus)
 
@@ -330,6 +345,143 @@ function Feld({ label, wert, rot }: { label: string; wert: string; rot?: boolean
     <div>
       <div className="text-[10px] uppercase tracking-wide text-ink-400">{label}</div>
       <div className={`text-sm font-bold tabular-nums ${rot ? 'text-rose-600' : 'text-ink-900'}`}>{wert}</div>
+    </div>
+  )
+}
+
+function SparKonto() {
+  const { cash, tagesgeld, festgeld, monthIndex } = useGame()
+  const tagesgeldEinzahlen = useGame((s) => s.tagesgeldEinzahlen)
+  const tagesgeldAbheben = useGame((s) => s.tagesgeldAbheben)
+  const festgeldAnlegen = useGame((s) => s.festgeldAnlegen)
+
+  const [tgBetrag, setTgBetrag] = useState('')
+  const [fgBetrag, setFgBetrag] = useState('')
+  const [fgLaufzeit, setFgLaufzeit] = useState(FESTGELD_STAFFEL[1].monate)
+
+  const tg = Math.max(0, Math.round(Number(tgBetrag.replace(',', '.')) || 0))
+  const fg = Math.max(0, Math.round(Number(fgBetrag.replace(',', '.')) || 0))
+  const fgStaffel = FESTGELD_STAFFEL.find((f) => f.monate === fgLaufzeit)!
+
+  return (
+    <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+      {/* Tagesgeld */}
+      <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-4 text-white shadow-md">
+        <div className="text-[11px] uppercase tracking-wide text-white/80">Tagesgeld · Guthaben</div>
+        <div className="mt-0.5 text-3xl font-black tabular-nums">{euro(tagesgeld)}</div>
+        <div className="mt-1 text-[11px] text-white/80">{(TAGESGELD_ZINS * 100).toFixed(1)} % p. a. · täglich verfügbar</div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+        <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Umbuchen (Girokonto ↔ Tagesgeld)</div>
+        <div className="relative mt-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={tgBetrag}
+            onChange={(e) => setTgBetrag(e.target.value)}
+            placeholder="Betrag in Euro"
+            className="w-full rounded-xl border border-slate-200 py-2.5 pl-3 pr-8 text-right text-sm tabular-nums outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">€</span>
+        </div>
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={() => {
+              tagesgeldEinzahlen(tg)
+              setTgBetrag('')
+            }}
+            disabled={tg <= 0 || tg > cash}
+            className="flex-1 rounded-xl bg-amber-500 py-2 text-sm font-bold text-white transition hover:bg-amber-600 disabled:bg-slate-200 disabled:text-ink-400"
+          >
+            Einzahlen
+          </button>
+          <button
+            onClick={() => {
+              tagesgeldAbheben(tg)
+              setTgBetrag('')
+            }}
+            disabled={tg <= 0 || tg > tagesgeld}
+            className="flex-1 rounded-xl bg-white py-2 text-sm font-bold text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-50 disabled:text-ink-300 disabled:ring-slate-200"
+          >
+            Abheben
+          </button>
+        </div>
+        <div className="mt-1.5 text-[11px] text-ink-400">Frei auf dem Girokonto: {euro(cash)}</div>
+      </div>
+
+      {/* Festgeld */}
+      <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+        <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Festgeld anlegen (fester Zins)</div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {FESTGELD_STAFFEL.map((f) => (
+            <button
+              key={f.monate}
+              onClick={() => setFgLaufzeit(f.monate)}
+              className={`rounded-xl border p-2 text-center transition ${
+                fgLaufzeit === f.monate ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-100' : 'border-slate-200'
+              }`}
+            >
+              <div className="text-sm font-black text-ink-900">{f.monate} Mon.</div>
+              <div className="text-[11px] font-bold text-amber-600">{(f.zins * 100).toFixed(1)} %</div>
+            </button>
+          ))}
+        </div>
+        <div className="relative mt-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={fgBetrag}
+            onChange={(e) => setFgBetrag(e.target.value)}
+            placeholder="Betrag in Euro"
+            className="w-full rounded-xl border border-slate-200 py-2.5 pl-3 pr-8 text-right text-sm tabular-nums outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">€</span>
+        </div>
+        <div className="mt-1.5 text-[11px] text-ink-400">
+          Auszahlung bei Fälligkeit ≈ {euro(Math.round(fg * (1 + fgStaffel.zins * (fgLaufzeit / 12))))} · Kapital {fgLaufzeit} Monate gebunden
+        </div>
+        <button
+          onClick={() => {
+            festgeldAnlegen(fg, fgLaufzeit)
+            setFgBetrag('')
+          }}
+          disabled={fg <= 0 || fg > cash}
+          className="mt-2 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white transition hover:bg-amber-600 disabled:bg-slate-200 disabled:text-ink-400"
+        >
+          {fg > cash ? 'Nicht genug Liquidität' : `${euro(fg)} anlegen`}
+        </button>
+      </div>
+
+      {/* Laufende Festgelder */}
+      {festgeld.length > 0 && (
+        <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-black/5">
+          <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Laufende Festgelder</div>
+          <div className="mt-2 space-y-2">
+            {festgeld.map((f) => {
+              const rest = Math.max(0, f.faelligMonth - monthIndex)
+              const ziel = Math.round(f.betrag * (1 + f.zinsSatz * (f.laufzeitMonate / 12)))
+              return (
+                <div key={f.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-ink-900">{euro(f.betrag)} · {(f.zinsSatz * 100).toFixed(1)} %</div>
+                    <div className="text-[10px] text-ink-400">
+                      noch {rest < 1 ? 'unter 1' : Math.ceil(rest)} Mon. · Auszahlung {euro(ziel)}
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">gebunden</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl bg-amber-50/70 p-3 text-center text-[11px] leading-snug text-amber-700/80">
+        Sicher & planbar — im Gegensatz zur Börse. Geparktes Geld arbeitet, statt von den Sonderausgaben aufgezehrt zu werden.
+      </div>
     </div>
   )
 }

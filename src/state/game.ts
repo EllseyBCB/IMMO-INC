@@ -10,6 +10,23 @@ import { ORDERGEBUEHR, assetPreis, depotWert, getAsset, type DepotPosition } fro
 export const MS_PRO_MONAT = 4 * 60 * 60 * 1000 // 1 Spiel-Monat = 4 Echt-Stunden
 const MAX_ELAPSED_MONATE = 12 // Offline-Fortschritt gedeckelt (kein Uralt-Sprung)
 
+// Sparen: sichere Anlage als Gegenpol zur Börse.
+export const TAGESGELD_ZINS = 0.03 // 3,0 % p. a., jederzeit verfügbar
+export const FESTGELD_STAFFEL: { monate: number; zins: number }[] = [
+  { monate: 6, zins: 0.035 },
+  { monate: 12, zins: 0.04 },
+  { monate: 24, zins: 0.045 },
+]
+
+export interface FestgeldPosition {
+  id: string
+  betrag: number
+  zinsSatz: number
+  startMonth: number
+  laufzeitMonate: number
+  faelligMonth: number
+}
+
 export interface Finanzierung {
   eigenkapitalEinsatz: number
   darlehen: number
@@ -56,7 +73,7 @@ export interface LogEintrag {
   month: number
   text: string
   betrag?: number
-  art: 'kauf' | 'verkauf' | 'renovierung' | 'miete' | 'rate' | 'kosten' | 'gehalt' | 'invest' | 'info'
+  art: 'kauf' | 'verkauf' | 'renovierung' | 'miete' | 'rate' | 'kosten' | 'gehalt' | 'invest' | 'zinsen' | 'info'
 }
 
 export interface Lebenssituation {
@@ -77,6 +94,8 @@ export interface GameState {
   verkauft: string[] // property ids die vom Markt verschwinden
   gekaufteLuxus: string[] // ids gekaufter Lifestyle-Artikel
   depot: DepotPosition[] // Aktien/ETF/Krypto-Positionen
+  tagesgeld: number // Sparguthaben (variabel verzinst)
+  festgeld: FestgeldPosition[] // feste Anlagen mit Laufzeit
   log: LogEintrag[]
 
   neuesSpiel: (l: Lebenssituation, startkapital: number) => void
@@ -102,6 +121,12 @@ export interface GameState {
   assetKaufen: (id: string, menge: number) => void
   /** Verkauft `menge` Anteile eines Assets zum aktuellen Kurs (inkl. Gebühr). */
   assetVerkaufen: (id: string, menge: number) => void
+  /** Zahlt vom Girokonto aufs Tagesgeld ein. */
+  tagesgeldEinzahlen: (betrag: number) => void
+  /** Hebt vom Tagesgeld aufs Girokonto ab. */
+  tagesgeldAbheben: (betrag: number) => void
+  /** Legt einen Betrag als Festgeld mit fester Laufzeit an. */
+  festgeldAnlegen: (betrag: number, laufzeitMonate: number) => void
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
   /** Springt exakt einen Monat vor (als wären die 4 Echt-Stunden vergangen). */
@@ -125,6 +150,8 @@ function persist(state: GameState) {
       verkauft: state.verkauft,
       gekaufteLuxus: state.gekaufteLuxus,
       depot: state.depot,
+      tagesgeld: state.tagesgeld,
+      festgeld: state.festgeld,
       log: state.log,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
@@ -165,6 +192,8 @@ export const useGame = create<GameState>((set, get) => ({
   verkauft: [],
   gekaufteLuxus: [],
   depot: [],
+  tagesgeld: 0,
+  festgeld: [],
   log: [],
 
   neuesSpiel: (l, startkapital) => {
@@ -180,6 +209,8 @@ export const useGame = create<GameState>((set, get) => ({
       verkauft: [],
       gekaufteLuxus: [],
       depot: [],
+      tagesgeld: 0,
+      festgeld: [],
       log: [
         {
           month: 0,
@@ -207,6 +238,8 @@ export const useGame = create<GameState>((set, get) => ({
       verkauft: [],
       gekaufteLuxus: [],
       depot: [],
+      tagesgeld: 0,
+      festgeld: [],
       log: [],
     })
   },
@@ -449,6 +482,60 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
+  tagesgeldEinzahlen: (betrag) => {
+    const s = get()
+    const b = Math.min(Math.round(betrag), s.cash)
+    if (b <= 0) return
+    set({
+      cash: s.cash - b,
+      tagesgeld: s.tagesgeld + b,
+      log: [{ month: Math.floor(s.monthIndex), text: 'Einzahlung Tagesgeld', betrag: -b, art: 'zinsen' as const }, ...s.log].slice(0, 200),
+    })
+    persist(get())
+  },
+
+  tagesgeldAbheben: (betrag) => {
+    const s = get()
+    const b = Math.min(Math.round(betrag), s.tagesgeld)
+    if (b <= 0) return
+    set({
+      cash: s.cash + b,
+      tagesgeld: s.tagesgeld - b,
+      log: [{ month: Math.floor(s.monthIndex), text: 'Auszahlung Tagesgeld', betrag: b, art: 'zinsen' as const }, ...s.log].slice(0, 200),
+    })
+    persist(get())
+  },
+
+  festgeldAnlegen: (betrag, laufzeitMonate) => {
+    const s = get()
+    const b = Math.min(Math.round(betrag), s.cash)
+    const staffel = FESTGELD_STAFFEL.find((f) => f.monate === laufzeitMonate)
+    if (b <= 0 || !staffel) return
+    const start = Math.floor(s.monthIndex)
+    const pos: FestgeldPosition = {
+      id: crypto.randomUUID(),
+      betrag: b,
+      zinsSatz: staffel.zins,
+      startMonth: start,
+      laufzeitMonate,
+      faelligMonth: start + laufzeitMonate,
+    }
+    set({
+      cash: s.cash - b,
+      festgeld: [...s.festgeld, pos],
+      log: [
+        {
+          month: start,
+          text: `Festgeld angelegt: ${b.toLocaleString('de-DE')} € · ${laufzeitMonate} Mon. zu ${(staffel.zins * 100).toFixed(1)} %`,
+          betrag: -b,
+          art: 'zinsen' as const,
+        },
+        ...s.log,
+      ].slice(0, 200),
+    })
+    persist(get())
+  },
+
   renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger) => {
     const s = get()
     const idx = s.owned.findIndex((o) => o.uid === uid)
@@ -574,9 +661,30 @@ export const useGame = create<GameState>((set, get) => ({
     // private Lebenshaltung
     cash += (s.lebenssituation.nettoEinkommen - s.lebenssituation.fixkosten) * elapsed
 
-    // Sonderausgaben: wachsen mit dem Vermögen (inkl. Depot) + Lebensstandard
-    const vermoegenVorher = nettoVermoegen(s.cash, s.owned) + depotWert(s.depot, s.monthIndex)
+    // Sonderausgaben: wachsen mit dem Vermögen (inkl. Depot + Sparen) + Lebensstandard
+    const sparVorher = s.tagesgeld + s.festgeld.reduce((a, f) => a + f.betrag, 0)
+    const vermoegenVorher = nettoVermoegen(s.cash, s.owned) + depotWert(s.depot, s.monthIndex) + sparVorher
     cash -= sonderausgabenMonat(vermoegenVorher, s.gekaufteLuxus) * elapsed
+
+    // Tagesgeld verzinst kontinuierlich (compoundet)
+    let tagesgeld = s.tagesgeld + s.tagesgeld * (TAGESGELD_ZINS / 12) * elapsed
+
+    // Festgeld: fällige Anlagen inkl. Zins auszahlen
+    let festgeld = s.festgeld
+    const faellige = s.festgeld.filter((f) => monthNach >= f.faelligMonth)
+    if (faellige.length > 0) {
+      festgeld = s.festgeld.filter((f) => monthNach < f.faelligMonth)
+      for (const f of faellige) {
+        const auszahlung = Math.round(f.betrag * (1 + f.zinsSatz * (f.laufzeitMonate / 12)))
+        cash += auszahlung
+        neueLogs.push({
+          month: f.faelligMonth,
+          text: `Festgeld fällig: ${f.betrag.toLocaleString('de-DE')} € → ${auszahlung.toLocaleString('de-DE')} € (${(f.zinsSatz * 100).toFixed(1)} %)`,
+          betrag: auszahlung,
+          art: 'zinsen',
+        })
+      }
+    }
 
     // Monatliche Umsätze buchen, sobald eine Monatsgrenze überschritten wird —
     // wie auf einem echten Konto (Gehalt, Mieten, Raten, Hausgeld, Ausgaben).
@@ -593,11 +701,13 @@ export const useGame = create<GameState>((set, get) => ({
         owned.filter((o) => o.nutzung !== 'vermietet').reduce((a, o) => a + o.property.hausgeldOderNebenkosten, 0),
       )
       const sonder = Math.round(sonderausgabenMonat(vermoegenVorher, s.gekaufteLuxus))
+      const tgZins = Math.round(s.tagesgeld * (TAGESGELD_ZINS / 12))
       const maxBuchen = 6
       const von = Math.max(startM + 1, endM - maxBuchen + 1)
       for (let m = endM; m >= von; m--) {
         if (netto > 0) neueLogs.push({ month: m, text: 'Gehaltseingang', betrag: netto, art: 'gehalt' })
         if (sumMiete > 0) neueLogs.push({ month: m, text: 'Mieteinnahmen', betrag: sumMiete, art: 'miete' })
+        if (tgZins > 0) neueLogs.push({ month: m, text: 'Zinsen Tagesgeld', betrag: tgZins, art: 'zinsen' })
         // Dividenden je dividendenzahlendem Depot-Wert
         for (const pos of s.depot) {
           const a = getAsset(pos.assetId)
@@ -623,6 +733,8 @@ export const useGame = create<GameState>((set, get) => ({
       cash: Math.round(cash),
       lastTick: now,
       owned,
+      tagesgeld: Math.round(tagesgeld),
+      festgeld,
       log: neueLogs.length ? [...neueLogs, ...s.log].slice(0, 200) : s.log,
     })
     persist(get())
@@ -682,9 +794,20 @@ export function nettoVermoegen(cash: number, owned: OwnedProperty[]): number {
   return cash + portfolioWert(owned) - schulden(owned)
 }
 
-/** Gesamtvermögen inkl. Wertpapierdepot (Aktien/ETF/Krypto) zur Spielzeit t. */
-export function gesamtVermoegen(cash: number, owned: OwnedProperty[], depot: DepotPosition[], t: number): number {
-  return nettoVermoegen(cash, owned) + depotWert(depot, t)
+/** Sparguthaben (Tagesgeld + Festgeld-Nominal). */
+export function sparGuthaben(tagesgeld: number, festgeld: FestgeldPosition[]): number {
+  return tagesgeld + festgeld.reduce((a, f) => a + f.betrag, 0)
+}
+
+/** Gesamtvermögen inkl. Wertpapierdepot und Sparguthaben zur Spielzeit t. */
+export function gesamtVermoegen(
+  cash: number,
+  owned: OwnedProperty[],
+  depot: DepotPosition[],
+  t: number,
+  spar = 0,
+): number {
+  return nettoVermoegen(cash, owned) + depotWert(depot, t) + spar
 }
 
 export function berechneFinanzierung(

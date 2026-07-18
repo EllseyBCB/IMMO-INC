@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { gesamtVermoegen, useGame } from '../../state/game'
+import { gesamtVermoegen, sparGuthaben, useGame } from '../../state/game'
 import {
   LUXUS_KATALOG,
   lebensstandard,
@@ -13,11 +13,11 @@ import { euro } from '../../lib/format'
 const KATEGORIEN: LuxusKategorie[] = ['Mobilität', 'Wohnen', 'Uhren & Schmuck', 'Reisen', 'Freizeit', 'Tech']
 
 export default function ShopApp({ onClose }: { onClose: () => void }) {
-  const { cash, owned, gekaufteLuxus, depot, monthIndex } = useGame()
+  const { cash, owned, gekaufteLuxus, depot, monthIndex, tagesgeld, festgeld } = useGame()
   const luxusKaufen = useGame((s) => s.luxusKaufen)
   const [filter, setFilter] = useState<LuxusKategorie | 'alle'>('alle')
 
-  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex, sparGuthaben(tagesgeld, festgeld))
   const ls = lebensstandard(vermoegen, gekaufteLuxus)
   const unterhalt = luxusUnterhalt(gekaufteLuxus)
   const sonder = sonderausgabenMonat(vermoegen, gekaufteLuxus)

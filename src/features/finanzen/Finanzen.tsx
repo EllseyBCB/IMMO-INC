@@ -5,6 +5,7 @@ import {
   monatlicheRaten,
   portfolioWert,
   schulden,
+  sparGuthaben,
   useGame,
 } from '../../state/game'
 import { Button, Card, Modal, Stat } from '../../components/ui'
@@ -21,18 +22,20 @@ const ART_STYLE: Record<string, { icon: string; tone: string }> = {
   kosten: { icon: '📉', tone: 'text-rose-600' },
   gehalt: { icon: '💶', tone: 'text-emerald-600' },
   invest: { icon: '📈', tone: 'text-indigo-600' },
+  zinsen: { icon: '🪙', tone: 'text-emerald-600' },
   info: { icon: 'ℹ️', tone: 'text-ink-500' },
 }
 
 export default function Finanzen() {
-  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, depot, reset } = useGame()
+  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, depot, tagesgeld, festgeld, reset } = useGame()
   const [resetOffen, setResetOffen] = useState(false)
 
   const wert = portfolioWert(owned)
   const debt = schulden(owned)
   const investWert = depotWert(depot, monthIndex)
   const investGV = investWert - depotEinstand(depot)
-  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex)
+  const spar = sparGuthaben(tagesgeld, festgeld)
+  const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex, spar)
   const raten = monatlicheRaten(owned)
   const miete = monatlicheMiete(owned)
   const hausgeld = owned
@@ -93,6 +96,22 @@ export default function Finanzen() {
                 {euro(investGV)}
               </div>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Sparen */}
+      {spar > 0 && (
+        <Card className="mt-4 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Sparen (sicher)</h2>
+              <p className="text-xs text-ink-400">
+                Tagesgeld {euro(tagesgeld)}
+                {festgeld.length > 0 ? ` · ${festgeld.length} Festgeld` : ''}
+              </p>
+            </div>
+            <div className="text-lg font-black tabular-nums text-ink-900">{euro(spar)}</div>
           </div>
         </Card>
       )}

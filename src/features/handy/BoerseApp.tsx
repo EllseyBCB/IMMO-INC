@@ -3,6 +3,8 @@ import { useGame } from '../../state/game'
 import {
   ASSETS,
   ORDERGEBUEHR,
+  aktuelleNews,
+  assetEventBadge,
   assetPreis,
   assetVeraenderung,
   depotEinstand,
@@ -60,6 +62,9 @@ export default function BoerseApp({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
+        {/* Markt-News */}
+        <NewsFeed t={monthIndex} />
+
         {/* Eigene Positionen */}
         {depot.length > 0 && (
           <div className="px-3 pt-3">
@@ -113,10 +118,40 @@ export default function BoerseApp({ onClose }: { onClose: () => void }) {
   )
 }
 
+function NewsFeed({ t }: { t: number }) {
+  const news = aktuelleNews(t, 5)
+  if (news.length === 0) return null
+  return (
+    <div className="px-3 pt-3">
+      <div className="mb-1 flex items-center gap-1 px-1 text-xs font-bold uppercase tracking-wide text-ink-500">
+        📰 Markt-News
+      </div>
+      <div className="space-y-1.5">
+        {news.map((n, i) => {
+          const a = getAsset(n.assetId)
+          return (
+            <div key={i} className="flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-soft ring-1 ring-black/5">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-sm">{a?.emoji ?? '📈'}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-ink-800">
+                {n.text}
+                {n.aktiv && <span className="ml-1 text-[9px] font-bold text-amber-600">● live</span>}
+              </span>
+              <span className={`shrink-0 text-xs font-black tabular-nums ${n.positiv ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {n.positiv ? '+' : '−'}{n.prozent.toFixed(1)} %
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function MarktZeile({ asset, t, onClick }: { asset: Asset; t: number; onClick: () => void }) {
   const preis = assetPreis(asset, t)
   const chg = assetVeraenderung(asset, t)
   const hist = preisHistorie(asset, t)
+  const badge = assetEventBadge(asset, t)
   return (
     <button
       onClick={onClick}
@@ -126,6 +161,7 @@ function MarktZeile({ asset, t, onClick }: { asset: Asset; t: number; onClick: (
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-sm font-bold text-ink-900">{asset.name}</span>
+          {badge && <span className="shrink-0 text-xs">{badge === 'pos' ? '🔥' : '⚠️'}</span>}
           <span className="shrink-0 rounded bg-slate-100 px-1 text-[9px] font-bold text-ink-400">{asset.klasse}</span>
         </span>
         <span className="block text-[10px] text-ink-400">{asset.kuerzel}{asset.dividende > 0 ? ` · ${(asset.dividende * 100).toFixed(1)}% Div.` : ''}</span>
