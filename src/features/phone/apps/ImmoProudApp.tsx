@@ -14,8 +14,8 @@ function inseratsGebuehr(markt: number): number {
   return Math.max(150, Math.round(markt * 0.5))
 }
 
-export default function ImmoProudApp({ onClose, nav }: { onClose: () => void; nav: PhoneNav }) {
-  const [tab, setTab] = useState<'kaufen' | 'vermieten'>('kaufen')
+export default function ImmoProudApp({ onClose, nav, initialTab }: { onClose: () => void; nav: PhoneNav; initialTab?: 'kaufen' | 'vermieten' }) {
+  const [tab, setTab] = useState<'kaufen' | 'vermieten'>(initialTab ?? 'kaufen')
   return (
     <div className="flex h-full flex-col bg-slate-50">
       <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 pt-3 text-white">

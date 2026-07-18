@@ -3,10 +3,10 @@ import type { Property } from '../../../data/types'
 import { ladeMarkt } from '../../../data/openimmo'
 import { useCustomListings } from '../../../state/customListings'
 import { useInternet } from '../../../state/internet'
-import { PageProvider, WebPage, sucheGiggle, type GigglePage, type WebResult } from '../../../data/web'
+import { PageProvider, WebPage, getService, sucheGiggle, type GigglePage, type WebResult } from '../../../data/web'
 import type { PhoneNav } from '../nav'
 
-const VORSCHLAEGE = ['Grunderwerbsteuer Bayern', 'Kaufnebenkosten', 'Spekulationssteuer', 'Börse News', 'Wohnung Leipzig']
+const VORSCHLAEGE = ['Bauträger finden', 'Wohnung vermieten', 'Baufinanzierung', 'Makler', 'Grunderwerbsteuer Bayern', 'Börse News']
 
 export default function GiggleApp({ onClose, nav, initial }: { onClose: () => void; nav: PhoneNav; initial?: string }) {
   const custom = useCustomListings((s) => s.objekte)
@@ -140,6 +140,8 @@ function seiteUrl(page: GigglePage, objekte: Property[]): string {
       return `stadt-wiki.gg/${page.stadt.toLowerCase()}`
     case 'immoscout':
       return page.id ? `immoscout24.gg/expose/${page.id.slice(0, 8)}` : 'immoscout24.gg'
+    case 'service':
+      return getService(page.id)?.url ?? 'giggle.gg'
   }
   void objekte
   return 'giggle.gg'

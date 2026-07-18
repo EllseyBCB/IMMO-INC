@@ -193,7 +193,7 @@ function AppHost({ screen, nav }: { screen: Screen; nav: PhoneNav }) {
   // Native Apps (eigene Kopfzeile, füllen die Höhe selbst)
   switch (screen.app) {
     case 'immobilien':
-      return <ImmoProudApp onClose={onClose} nav={nav} />
+      return <ImmoProudApp onClose={onClose} nav={nav} initialTab={screen.props?.tab as 'kaufen' | 'vermieten' | undefined} />
     case 'konten':
       return <BankingApp onClose={onClose} />
     case 'boerse':

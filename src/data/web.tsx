@@ -7,13 +7,14 @@ import { ASSETS, aktuelleNews, assetPreis, assetVeraenderung } from './assets'
 import { euro, pct, area } from '../lib/format'
 import { mietrendite } from '../features/markt/propertyUtil'
 import { useGame } from '../state/game'
-import type { PhoneNav } from '../features/phone/nav'
+import type { AppId, PhoneNav } from '../features/phone/nav'
 
 export type GigglePage =
   | { typ: 'artikel'; id: string }
   | { typ: 'immoscout'; id?: string; q?: string }
   | { typ: 'boersenblick' }
   | { typ: 'stadtwiki'; stadt: string }
+  | { typ: 'service'; id: string }
 
 export interface WebResult {
   titel: string
@@ -124,12 +125,134 @@ export function getArtikel(id: string): Artikel | undefined {
   return ARTIKEL.find((a) => a.id === id)
 }
 
+// --- Dienstleister-Verzeichnisse: verlinken direkt in die passende App ---
+interface Service {
+  id: string
+  titel: string
+  url: string
+  keywords: string[]
+  snippet: string
+  appZiel: AppId
+  extra?: Record<string, unknown>
+  ctaText: string
+  Body: () => ReactNode
+}
+
+function Sterne({ n }: { n: number }) {
+  return <span className="text-amber-500">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
+}
+function Profil({ emoji, name, fach, note, text }: { emoji: string; name: string; fach: string; note: number; text: string }) {
+  return (
+    <div className="rounded-xl border border-slate-100 p-3">
+      <div className="flex items-center gap-2">
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-lg">{emoji}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-bold text-ink-900">{name}</div>
+          <div className="text-[11px] text-ink-500">{fach}</div>
+        </div>
+        <Sterne n={note} />
+      </div>
+      <p className="mt-1.5 text-xs text-ink-600">{text}</p>
+    </div>
+  )
+}
+
+const SERVICES: Service[] = [
+  {
+    id: 'bautraeger',
+    titel: 'HandwerkerHeld — Bauträger & Sanierungsprofis finden',
+    url: 'handwerkerheld.gg',
+    keywords: ['bauträger', 'bautraeger', 'handwerker', 'renovieren', 'renovierung', 'sanieren', 'sanierung', 'modernisieren', 'umbau', 'küche', 'kueche', 'bad', 'badezimmer', 'energetisch', 'malern'],
+    snippet: 'Geprüfte Bauträger für Renovierung & Sanierung. Angebote einholen und beauftragen.',
+    appZiel: 'bautraeger',
+    ctaText: '🔨 Bauträger beauftragen',
+    Body: () => (
+      <div className="space-y-2">
+        <p className="text-sm text-ink-700">Finde den passenden Bauträger, der deine Immobilie renoviert — vergleiche Angebote und verhandle Preis & Bauzeit.</p>
+        <Profil emoji="🛠️" name="Baris Yılmaz — Sanierungsprofi" fach="Komplettsanierung, Bäder, Küchen" note={5} text="Zuverlässig, ehrlich zu versteckten Mängeln. Meistgebucht in der Region." />
+        <Profil emoji="🏗️" name="BauStark GmbH" fach="Energetische Sanierung, Fassade" note={4} text="Faire Preise, etwas längere Bauzeit im Sparmodus." />
+        <Profil emoji="⚡" name="TurboBau24" fach="Express-Renovierungen" note={4} text="Blitzschnell fertig — dafür etwas teurer." />
+      </div>
+    ),
+  },
+  {
+    id: 'makler',
+    titel: 'MaklerMatch — Immobilienmakler & Beratung',
+    url: 'maklermatch.gg',
+    keywords: ['makler', 'immobilienmakler', 'beratung', 'besichtigung', 'verkaufsberatung'],
+    snippet: 'Erfahrene Makler für Kauf, Verkauf und Besichtigungen. Direkt Kontakt aufnehmen.',
+    appZiel: 'nachrichten',
+    ctaText: '💬 Makler anschreiben',
+    Body: () => (
+      <div className="space-y-2">
+        <p className="text-sm text-ink-700">Ein guter Makler kennt jedes Objekt und hilft ehrlich bei Chancen & Risiken.</p>
+        <Profil emoji="🏘️" name="Sabine Kern — IMMO INC" fach="Kauf, Verkauf, Marktkenntnis" note={5} text="Bestens vernetzt, offen über Preise und Lagen. Schreib ihr direkt in den Nachrichten." />
+      </div>
+    ),
+  },
+  {
+    id: 'vermieten',
+    titel: 'MieterFinder — Wohnung vermieten & Mieter finden',
+    url: 'mieterfinder.gg',
+    keywords: ['vermieten', 'mieter', 'mietersuche', 'mieter finden', 'inserieren', 'nachmieter', 'vermietung'],
+    snippet: 'Inseriere deine Wohnung und finde solvente Mieter. Anfragen treffen zeitversetzt ein.',
+    appZiel: 'immobilien',
+    extra: { tab: 'vermieten' },
+    ctaText: '📢 Objekt inserieren (ImmoProud)',
+    Body: () => (
+      <div className="space-y-2 text-sm text-ink-700">
+        <p>So findest du Mieter: Inseriere dein Objekt in ImmoProud (kostet eine Inseratsgebühr). Danach treffen mit der Zeit Anfragen ein — dann verhandelst du Miete & wählst den besten Mieter.</p>
+        <p className="text-xs text-ink-500">Tipp: Renoviere vor dem Vermieten — das hebt die erzielbare Miete.</p>
+      </div>
+    ),
+  },
+  {
+    id: 'kredit',
+    titel: 'KreditKompass — Baufinanzierung & Kredit vergleichen',
+    url: 'kreditkompass.gg',
+    keywords: ['kredit', 'finanzierung', 'baufinanzierung', 'hypothek', 'darlehen', 'zins', 'zinsen', 'bonität', 'bonitaet'],
+    snippet: 'Finanzierung berechnen, Bonität prüfen und die besten Konditionen sichern.',
+    appZiel: 'bank',
+    ctaText: '🏦 Zur Bank',
+    Body: () => (
+      <div className="space-y-2 text-sm text-ink-700">
+        <p>Deine Bank prüft die Bonität und macht dir ein Angebot. Zwei Hebel entscheiden: <b>mehr Eigenkapital</b> → niedrigerer Zins, <b>höheres Zinsangebot</b> → höhere Genehmigungschance.</p>
+        <p className="text-xs text-ink-500">Im Bank-Rechner siehst du Monatsrate & Bonitäts-Score. Die eigentliche Finanzierung schließt du beim Kauf ab.</p>
+      </div>
+    ),
+  },
+  {
+    id: 'verkaufen',
+    titel: 'FlipDeal — Immobilie verkaufen & Gewinn realisieren',
+    url: 'flipdeal.gg',
+    keywords: ['verkaufen', 'flippen', 'flip', 'gewinn', 'immobilie verkaufen', 'weiterverkauf'],
+    snippet: 'Verkaufe deine Immobilien mit Gewinn — beachte Spekulationssteuer bei < 10 Jahren.',
+    appZiel: 'portfolio',
+    ctaText: '💰 Zum Portfolio (verkaufen)',
+    Body: () => (
+      <div className="space-y-2 text-sm text-ink-700">
+        <p>Verkaufen läuft über dein Portfolio: renoviere günstig, verkaufe teurer (Flip). Achte auf die <b>Spekulationssteuer</b>, wenn du innerhalb von 10 Jahren verkaufst.</p>
+      </div>
+    ),
+  },
+]
+
+export function getService(id: string): Service | undefined {
+  return SERVICES.find((s) => s.id === id)
+}
+
 /** Giggle-Suche über das In-Game-Web. */
 export function sucheGiggle(query: string, objekte: Property[]): WebResult[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
   const tokens = q.split(/\s+/)
   const res: WebResult[] = []
+
+  // Dienstleister (Bauträger, Makler, Vermieten, Finanzierung, Verkaufen) — zuerst
+  for (const s of SERVICES) {
+    if (s.keywords.some((k) => q.includes(k)) || tokens.some((t) => s.titel.toLowerCase().includes(t)))
+      res.push({ titel: s.titel, url: s.url, snippet: s.snippet, page: { typ: 'service', id: s.id } })
+  }
 
   // Ratgeber-Artikel
   for (const a of ARTIKEL) {
@@ -211,6 +334,24 @@ export function WebPage({ page, objekte, nav }: { page: GigglePage; objekte: Pro
         <div className="text-[11px] text-emerald-600">🔒 immowissen.gg</div>
         <h1 className="mt-1 text-lg font-black text-ink-900">{a.titel}</h1>
         <div className="mt-3">{a.Body()}</div>
+      </div>
+    )
+  }
+
+  if (page.typ === 'service') {
+    const s = getService(page.id)
+    if (!s) return <WebFehler />
+    return (
+      <div className="p-4">
+        <div className="text-[11px] text-emerald-600">🔒 {s.url}</div>
+        <h1 className="mt-1 text-lg font-black text-ink-900">{s.titel}</h1>
+        <div className="mt-3">{s.Body()}</div>
+        <button
+          onClick={() => nav.open(s.appZiel, s.extra)}
+          className="mt-4 w-full rounded-xl bg-brand-500 py-2.5 text-sm font-bold text-white transition hover:bg-brand-600"
+        >
+          {s.ctaText} →
+        </button>
       </div>
     )
   }
