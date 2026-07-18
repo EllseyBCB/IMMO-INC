@@ -3,158 +3,255 @@ import { useGame } from '../../../state/game'
 import { euro } from '../../../lib/format'
 import type { PhoneNav } from '../nav'
 
-// Ägypten-Slot im „Book of …"-Stil. Bewusst schlechte Quote (RTP ~83 %) —
-// auf Dauer verliert man, wie an einer echten Slotmaschine.
-interface Sym {
-  e: string
-  name: string
-  w: number // Gewichtung (Häufigkeit)
-  m3: number // Auszahlung x Einsatz bei 3 gleichen
-  m2: number // Auszahlung x Einsatz bei 2 gleichen
-}
+// Book-of-…-Slot: 5 Walzen × 3 Reihen, 10 Gewinnlinien, Buch = Wild & Scatter,
+// 3+ Bücher lösen 10 Freispiele mit expandierendem Sondersymbol aus.
+// Bewusst schlechte Quote — auf Dauer verliert man, wie im echten Casino.
 
+const BOOK = '📖'
+interface Sym {
+  k: string
+  w: number
+  pay: Record<number, number> // Anzahl gleicher -> x Linieneinsatz
+}
 const SYMBOLS: Sym[] = [
-  { e: '📕', name: 'Buch', w: 2, m3: 120, m2: 12 },
-  { e: '🧭', name: 'Forscher', w: 4, m3: 50, m2: 5 },
-  { e: '🐍', name: 'Kobra', w: 7, m3: 22, m2: 2 },
-  { e: '🏺', name: 'Statue', w: 11, m3: 12, m2: 1 },
-  { e: '🪲', name: 'Skarabäus', w: 16, m3: 7, m2: 0.5 },
-  { e: '💰', name: 'Gold', w: 20, m3: 4, m2: 0.4 },
+  { k: '🧭', w: 5, pay: { 3: 10, 4: 100, 5: 500 } },
+  { k: '🗿', w: 6, pay: { 3: 8, 4: 40, 5: 200 } },
+  { k: '🪲', w: 8, pay: { 3: 5, 4: 30, 5: 150 } },
+  { k: '🏺', w: 9, pay: { 3: 5, 4: 25, 5: 100 } },
+  { k: '💎', w: 11, pay: { 3: 2, 4: 10, 5: 75 } },
+  { k: '⭐', w: 12, pay: { 3: 2, 4: 10, 5: 75 } },
 ]
-const GESAMT_W = SYMBOLS.reduce((s, x) => s + x.w, 0)
+const BOOK_PAY: Record<number, number> = { 3: 2, 4: 20, 5: 200 } // x Gesamteinsatz (Scatter)
+const ALLE = [...SYMBOLS, { k: BOOK, w: 3, pay: {} }]
+const GESAMT_W = ALLE.reduce((s, x) => s + x.w, 0)
+const PAYMAP: Record<string, Record<number, number>> = Object.fromEntries(SYMBOLS.map((s) => [s.k, s.pay]))
+
+// 10 Gewinnlinien (Reihen-Index je Walze)
+const LINES: number[][] = [
+  [1, 1, 1, 1, 1],
+  [0, 0, 0, 0, 0],
+  [2, 2, 2, 2, 2],
+  [0, 1, 2, 1, 0],
+  [2, 1, 0, 1, 2],
+  [0, 0, 1, 2, 2],
+  [2, 2, 1, 0, 0],
+  [1, 0, 0, 0, 1],
+  [1, 2, 2, 2, 1],
+  [0, 1, 1, 1, 0],
+]
 const EINSAETZE = [10, 50, 100, 500]
 
-function zufallsSymbol(): Sym {
+function zieh(): string {
   let r = Math.random() * GESAMT_W
-  for (const s of SYMBOLS) {
+  for (const s of ALLE) {
     r -= s.w
-    if (r <= 0) return s
+    if (r <= 0) return s.k
   }
-  return SYMBOLS[SYMBOLS.length - 1]
+  return ALLE[ALLE.length - 1].k
+}
+function ziehGrid(): string[][] {
+  return Array.from({ length: 5 }, () => [zieh(), zieh(), zieh()])
 }
 
-function gewinnBerechnen(reels: Sym[], einsatz: number): number {
-  const [a, b, c] = reels
-  if (a.e === b.e && b.e === c.e) return Math.round(einsatz * a.m3)
-  // genau zwei gleiche
-  const paar = a.e === b.e ? a : b.e === c.e ? b : a.e === c.e ? a : null
-  if (paar) return Math.round(einsatz * paar.m2)
-  return 0
+interface LineWin {
+  line: number
+  sym: string
+  count: number
+  gewinn: number
+}
+function lineWins(grid: string[][], lineBet: number): { gewinn: number; wins: LineWin[]; cells: Set<string> } {
+  const wins: LineWin[] = []
+  const cells = new Set<string>()
+  let gewinn = 0
+  LINES.forEach((line, li) => {
+    let sym: string | null = null
+    let count = 0
+    for (let reel = 0; reel < 5; reel++) {
+      const s = grid[reel][line[reel]]
+      if (s === BOOK) {
+        count++
+        continue
+      }
+      if (sym === null) {
+        sym = s
+        count++
+      } else if (s === sym) {
+        count++
+      } else break
+    }
+    if (sym && count >= 3 && PAYMAP[sym]?.[count]) {
+      const g = Math.round(PAYMAP[sym][count] * lineBet)
+      gewinn += g
+      wins.push({ line: li, sym, count, gewinn: g })
+      for (let reel = 0; reel < count; reel++) cells.add(`${reel}-${line[reel]}`)
+    }
+  })
+  return { gewinn, wins, cells }
+}
+function scatter(grid: string[][]): number {
+  return grid.reduce((s, reel) => s + reel.filter((x) => x === BOOK).length, 0)
+}
+function expandWin(grid: string[][], sym: string, lineBet: number): number {
+  const reels = grid.filter((reel) => reel.some((s) => s === sym || s === BOOK)).length
+  if (reels < 3) return 0
+  return Math.round((PAYMAP[sym]?.[reels] ?? 0) * lineBet * LINES.length)
+}
+
+interface Step {
+  grid: string[][]
+  gewinn: number
+  cells: Set<string>
+  frei: boolean
+  banner?: string
+}
+function berechne(einsatz: number): { steps: Step[]; total: number } {
+  const lineBet = einsatz / LINES.length
+  const base = ziehGrid()
+  const bl = lineWins(base, lineBet)
+  const sc = scatter(base)
+  let gewinn = bl.gewinn
+  if (sc >= 3) gewinn += Math.round((BOOK_PAY[sc] ?? BOOK_PAY[5]) * einsatz)
+  const steps: Step[] = [{ grid: base, gewinn, cells: bl.cells, frei: false }]
+  let total = gewinn
+
+  if (sc >= 3) {
+    const expand = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)].k
+    for (let i = 0; i < 10; i++) {
+      const g = ziehGrid()
+      const ew = expandWin(g, expand, lineBet)
+      const lw = lineWins(g, lineBet)
+      const win = Math.max(ew, lw.gewinn)
+      const cells = ew > lw.gewinn ? new Set(g.flatMap((reel, r) => (reel.some((s) => s === expand || s === BOOK) ? [0, 1, 2].map((row) => `${r}-${row}`) : []))) : lw.cells
+      steps.push({ grid: g, gewinn: win, cells, frei: true, banner: `Freispiel ${i + 1}/10 · ${expand}` })
+      total += win
+    }
+  }
+  return { steps, total }
 }
 
 export default function SlotApp({ onClose }: { onClose: () => void; nav: PhoneNav }) {
   const cash = useGame((s) => s.cash)
   const gluecksspiel = useGame((s) => s.gluecksspiel)
-  const [reels, setReels] = useState<Sym[]>([SYMBOLS[0], SYMBOLS[2], SYMBOLS[4]])
+  const [grid, setGrid] = useState<string[][]>(ziehGrid())
   const [einsatz, setEinsatz] = useState(50)
   const [spinning, setSpinning] = useState(false)
-  const [ergebnis, setErgebnis] = useState<number | null>(null)
-  const [verlauf, setVerlauf] = useState<{ gewinn: number; einsatz: number }[]>([])
-  const timer = useRef<number | null>(null)
+  const [cells, setCells] = useState<Set<string>>(new Set())
+  const [banner, setBanner] = useState<string | null>(null)
+  const [gewinnAnzeige, setGewinnAnzeige] = useState<number | null>(null)
+  const timers = useRef<number[]>([])
 
-  useEffect(() => () => { if (timer.current) window.clearInterval(timer.current) }, [])
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), [])
 
   function spin() {
     if (spinning || einsatz > cash) return
     setSpinning(true)
-    setErgebnis(null)
+    setCells(new Set())
+    setBanner(null)
+    setGewinnAnzeige(null)
+    const { steps, total } = berechne(einsatz)
+
+    // Walzen-Blur
     let ticks = 0
-    if (timer.current) window.clearInterval(timer.current)
-    timer.current = window.setInterval(() => {
-      setReels([zufallsSymbol(), zufallsSymbol(), zufallsSymbol()])
-      ticks++
-      if (ticks > 12) {
-        window.clearInterval(timer.current!)
-        const final = [zufallsSymbol(), zufallsSymbol(), zufallsSymbol()]
-        const gewinn = gewinnBerechnen(final, einsatz)
-        setReels(final)
-        gluecksspiel(einsatz, gewinn)
-        setErgebnis(gewinn)
-        setVerlauf((v) => [{ gewinn, einsatz }, ...v].slice(0, 8))
-        setSpinning(false)
+    const blur = window.setInterval(() => {
+      setGrid(ziehGrid())
+      if (++ticks > 10) {
+        window.clearInterval(blur)
+        spieleSteps(steps, total)
       }
-    }, 70)
+    }, 60)
   }
 
+  function spieleSteps(steps: Step[], total: number) {
+    let laufend = 0
+    const zeige = (i: number) => {
+      const step = steps[i]
+      setGrid(step.grid)
+      setCells(step.cells)
+      laufend += step.gewinn
+      setGewinnAnzeige(laufend)
+      setBanner(step.banner ?? (i === 0 && steps.length > 1 ? '📖 3 Bücher — 10 FREISPIELE!' : null))
+      if (i + 1 < steps.length) {
+        const t = window.setTimeout(() => zeige(i + 1), step.frei ? 650 : 900)
+        timers.current.push(t)
+      } else {
+        gluecksspiel(einsatz, total)
+        setSpinning(false)
+      }
+    }
+    zeige(0)
+  }
+
+  const lineBet = einsatz / LINES.length
+
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-amber-950 to-yellow-900 text-amber-50">
+    <div className="flex h-full flex-col bg-gradient-to-b from-amber-950 via-yellow-900 to-amber-950 text-amber-50">
       <div className="flex items-center gap-2 px-3 py-2 pt-3">
         <button onClick={onClose} className="text-lg text-amber-200" aria-label="Schließen">
           ✕
         </button>
-        <span className="text-sm font-black tracking-wide">🎰 Book of IMMO</span>
+        <span className="text-sm font-black tracking-wide">📖 Book of IMMO</span>
         <span className="ml-auto rounded-full bg-black/30 px-2.5 py-1 text-xs font-bold tabular-nums">{euro(cash)}</span>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
-        {/* Walzen */}
-        <div className="flex gap-2 rounded-2xl bg-black/40 p-3 shadow-inner ring-2 ring-amber-500/40">
-          {reels.map((s, i) => (
-            <div
-              key={i}
-              className={`grid h-24 w-20 place-items-center rounded-xl bg-gradient-to-b from-amber-100 to-amber-300 text-5xl shadow ${spinning ? 'animate-pulse' : ''}`}
-            >
-              {s.e}
-            </div>
-          ))}
+      <div className="flex flex-1 flex-col justify-center px-2">
+        {/* Banner */}
+        <div className="mb-2 h-6 text-center text-sm font-black text-amber-300">{banner}</div>
+
+        {/* 5×3 Walzen */}
+        <div className="mx-auto grid grid-cols-5 gap-1 rounded-2xl bg-black/50 p-2 ring-2 ring-amber-500/40">
+          {[0, 1, 2, 3, 4].map((reel) =>
+            [0, 1, 2].map((row) => {
+              const hot = cells.has(`${reel}-${row}`)
+              return (
+                <div
+                  key={`${reel}-${row}`}
+                  className={`grid aspect-square place-items-center rounded-lg text-3xl transition ${
+                    hot ? 'bg-amber-300 ring-2 ring-amber-100' : 'bg-gradient-to-b from-amber-100/95 to-amber-200/90'
+                  } ${spinning ? 'blur-[1px]' : ''}`}
+                >
+                  {grid[reel]?.[row] ?? '⭐'}
+                </div>
+              )
+            }),
+          )}
         </div>
 
-        {/* Ergebnis */}
-        <div className="mt-4 h-8 text-center">
-          {ergebnis !== null &&
-            (ergebnis > 0 ? (
-              <div className="text-lg font-black text-emerald-300">🎉 Gewinn {euro(ergebnis)}!</div>
+        {/* Gewinnanzeige */}
+        <div className="mt-2 h-7 text-center">
+          {gewinnAnzeige !== null &&
+            (gewinnAnzeige > 0 ? (
+              <span className="text-lg font-black text-emerald-300">🎉 Gewinn {euro(gewinnAnzeige)}</span>
             ) : (
-              <div className="text-sm font-bold text-amber-300/70">Leider nichts — nochmal?</div>
+              <span className="text-sm font-bold text-amber-300/60">Kein Gewinn</span>
             ))}
         </div>
 
         {/* Einsatz */}
-        <div className="mt-2 flex gap-2">
+        <div className="mt-1 flex justify-center gap-2">
           {EINSAETZE.map((e) => (
             <button
               key={e}
               onClick={() => setEinsatz(e)}
               disabled={spinning}
-              className={`rounded-xl px-3 py-1.5 text-sm font-bold transition ${
-                einsatz === e ? 'bg-amber-400 text-amber-950' : 'bg-black/30 text-amber-100'
-              }`}
+              className={`rounded-xl px-3 py-1.5 text-sm font-bold ${einsatz === e ? 'bg-amber-400 text-amber-950' : 'bg-black/30 text-amber-100'}`}
             >
               {euro(e)}
             </button>
           ))}
         </div>
+        <div className="mt-1 text-center text-[10px] text-amber-200/50">
+          {LINES.length} Linien · {euro(Math.round(lineBet))}/Linie · Buch = Wild &amp; Scatter
+        </div>
 
         <button
           onClick={spin}
           disabled={spinning || einsatz > cash}
-          className="mt-4 w-full max-w-[240px] rounded-2xl bg-gradient-to-b from-rose-500 to-rose-700 py-3.5 text-base font-black text-white shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+          className="mx-auto mt-3 w-full max-w-[260px] rounded-2xl bg-gradient-to-b from-rose-500 to-rose-700 py-3.5 text-base font-black text-white shadow-lg transition active:scale-[0.98] disabled:opacity-50"
         >
           {spinning ? 'Dreht…' : einsatz > cash ? 'Zu wenig Geld' : `DREHEN · ${euro(einsatz)}`}
         </button>
-
-        <p className="mt-3 max-w-[280px] text-center text-[10px] leading-snug text-amber-200/50">
-          Nur zum Spaß. Die Quote ist bewusst schlecht (Hausvorteil ~17 %) — auf Dauer verliert man, wie im echten Casino.
-        </p>
+        <p className="mt-2 text-center text-[10px] text-amber-200/40">Nur zum Spaß — der Hausvorteil sorgt dafür, dass man auf Dauer verliert.</p>
       </div>
-
-      {/* Verlauf */}
-      {verlauf.length > 0 && (
-        <div className="border-t border-white/10 px-4 py-2">
-          <div className="flex gap-1.5 overflow-x-auto">
-            {verlauf.map((v, i) => (
-              <span
-                key={i}
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                  v.gewinn > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-black/30 text-amber-200/60'
-                }`}
-              >
-                {v.gewinn > 0 ? `+${euro(v.gewinn)}` : `−${euro(v.einsatz)}`}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
