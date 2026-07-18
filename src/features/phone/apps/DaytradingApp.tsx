@@ -36,6 +36,7 @@ export default function DaytradingApp({ onClose }: { onClose: () => void; nav: P
   const [sel, setSel] = useState<string>('bitcoin')
   const [chart, setChart] = useState<number[]>([])
   const [betrag, setBetrag] = useState('')
+  const [info, setInfo] = useState(false)
   const alive = useRef(true)
 
   // Live-Kurse pollen (CoinGecko, kostenlos & CORS-fähig)
@@ -109,14 +110,38 @@ export default function DaytradingApp({ onClose }: { onClose: () => void; nav: P
         <span className={`ml-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${live ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
           {live === null ? '…' : live ? '● LIVE' : 'offline'}
         </span>
-        <button onClick={reset} className="ml-auto text-[11px] text-slate-400">
+        <button onClick={() => setInfo((v) => !v)} className="ml-auto grid h-6 w-6 place-items-center rounded-full bg-white/10 text-xs font-bold" aria-label="Erklärung">
+          ?
+        </button>
+        <button onClick={reset} className="text-[11px] text-slate-400">
           Reset
         </button>
       </div>
 
       <div className="no-scrollbar flex-1 overflow-y-auto px-3 pb-3">
+        {/* Erklärung */}
+        {info && (
+          <div className="mt-3 rounded-2xl bg-indigo-950/60 p-4 text-sm leading-relaxed text-slate-200 ring-1 ring-indigo-400/30">
+            <div className="mb-1 font-black text-indigo-300">So funktioniert Daytrading 💹</div>
+            <p>
+              Du handelst hier mit <b>echten Live-Kursen</b> von Kryptowährungen — aber mit einem <b>Übungskonto</b> (Startkapital
+              {' '}{euro(START_GUTHABEN)}). Dein echtes Spielgeld bleibt unangetastet.
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              <li>📈 <b>Kaufen:</b> Du wettest, dass der Kurs <b>steigt</b>. Wähl eine Coin, gib einen Betrag ein und kauf sie zum aktuellen Kurs.</li>
+              <li>📉 <b>Verkaufen:</b> Steigt der Kurs, verkaufst du <b>teurer</b> als du gekauft hast → <b>Gewinn</b>. Fällt er, machst du Verlust.</li>
+              <li>⏱️ <b>Daytrading</b> heißt: schnelle Käufe & Verkäufe, um kleine Kursbewegungen mitzunehmen. Die Kurse aktualisieren sich alle paar Sekunden.</li>
+              <li>🎯 Ziel: günstig kaufen, teuer verkaufen. Krypto schwankt stark — hohe Chance, hohes Risiko.</li>
+              <li>🔄 <b>Reset</b> setzt das Übungskonto wieder auf {euro(START_GUTHABEN)}.</li>
+            </ul>
+            <button onClick={() => setInfo(false)} className="mt-3 w-full rounded-xl bg-indigo-600 py-2 text-sm font-bold text-white">
+              Verstanden
+            </button>
+          </div>
+        )}
+
         {/* Konto */}
-        <div className="rounded-2xl bg-slate-900 p-3 ring-1 ring-white/5">
+        <div className="mt-3 rounded-2xl bg-slate-900 p-3 ring-1 ring-white/5">
           <div className="text-[10px] uppercase tracking-wide text-slate-400">Übungskonto · Gesamt</div>
           <div className="text-2xl font-black tabular-nums">{euro(gesamt)}</div>
           <div className="text-[11px] text-slate-400">

@@ -45,9 +45,11 @@ const LINES: number[][] = [
   [1, 2, 2, 2, 1],
   [0, 1, 1, 1, 0],
 ]
-const MIN_EINSATZ = 10
+const MIN_EINSATZ = 1
 /** Schrittweite je nach Höhe (unten fein, oben grob). */
 function stufe(e: number): number {
+  if (e < 10) return 1
+  if (e < 50) return 5
   if (e < 100) return 10
   if (e < 500) return 50
   if (e < 2000) return 100
