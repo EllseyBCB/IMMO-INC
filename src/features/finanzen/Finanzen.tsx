@@ -9,7 +9,9 @@ import {
   useGame,
 } from '../../state/game'
 import { Button, Card, Modal, Stat } from '../../components/ui'
-import { euro, gameDate } from '../../lib/format'
+import { Monatsberichtdetail } from '../phone/Monatsbericht'
+import type { Monatsbericht } from '../../state/game'
+import { euro, gameDate, gameDatum } from '../../lib/format'
 import { lebensstandard, sonderausgabenMonat } from '../../data/lifestyle'
 import { depotEinstand, depotWert } from '../../data/assets'
 
@@ -27,8 +29,9 @@ const ART_STYLE: Record<string, { icon: string; tone: string }> = {
 }
 
 export default function Finanzen() {
-  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, depot, tagesgeld, festgeld, reset } = useGame()
+  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, depot, tagesgeld, festgeld, monatsberichte, reset } = useGame()
   const [resetOffen, setResetOffen] = useState(false)
+  const [berichtOffen, setBerichtOffen] = useState<Monatsbericht | null>(null)
 
   const wert = portfolioWert(owned)
   const debt = schulden(owned)
@@ -136,6 +139,34 @@ export default function Finanzen() {
         </div>
       </Card>
 
+      {/* Monatsberichte */}
+      {monatsberichte.length > 0 && (
+        <Card className="mt-4 p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Monatsberichte</h2>
+          <p className="text-xs text-ink-400">Tippe einen Monat für die volle Auswertung.</p>
+          <div className="mt-3 space-y-1.5">
+            {monatsberichte.map((b) => (
+              <button
+                key={b.month}
+                onClick={() => setBerichtOffen(b)}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-slate-50"
+              >
+                <span className="text-base">📊</span>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-ink-800">{gameDatum(b.month)}</div>
+                  <div className="text-[11px] text-ink-400">
+                    Gewinn seit Start: {b.gewinnGesamt >= 0 ? '+' : '−'}{euro(Math.abs(b.gewinnGesamt))}
+                  </div>
+                </div>
+                <span className={`text-sm font-bold tabular-nums ${b.saldo >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {b.saldo >= 0 ? '+' : '−'}{euro(Math.abs(b.saldo))}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Verlauf */}
       <Card className="mt-4 p-5">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">Verlauf</h2>
@@ -164,6 +195,10 @@ export default function Finanzen() {
           </div>
         )}
       </Card>
+
+      <Modal open={!!berichtOffen} onClose={() => setBerichtOffen(null)}>
+        {berichtOffen && <Monatsberichtdetail bericht={berichtOffen} onClose={() => setBerichtOffen(null)} />}
+      </Modal>
 
       <Modal open={resetOffen} onClose={() => setResetOffen(false)} title="Neues Spiel starten?">
         <p className="text-sm text-ink-500">

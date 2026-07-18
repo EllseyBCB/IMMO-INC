@@ -48,6 +48,9 @@ export interface RenovationState {
   prompt: string
   status: 'in_arbeit' | 'fertig'
   bautraeger?: string
+  /** Bauträger-Bewertung (Sterne) & Risiko (0..1) für die Pfusch-Chance. */
+  rating?: number
+  risiko?: number
 }
 
 export type Nutzung = 'leer' | 'vermietet' | 'zumVerkauf'
@@ -84,6 +87,21 @@ export interface Lebenssituation {
   fixkosten: number
 }
 
+/** Monatliche Auswertung (Auto-Pop-up): Einnahmen, Ausgaben, Vermögensentwicklung. */
+export interface Monatsbericht {
+  month: number
+  einnahmen: { gehalt: number; miete: number; dividende: number; zinsen: number; festgeld: number }
+  ausgaben: { raten: number; hausgeld: number; lebenshaltung: number; sonder: number }
+  saldo: number
+  vermoegenNachher: number
+  /** Veränderung des Immobilien-Marktwerts in diesem Zeitraum. */
+  portfolioDelta: number
+  /** Gesamter Gewinn gegenüber dem Startkapital. */
+  gewinnGesamt: number
+  /** Woraus sich der finanzielle Vorteil zusammensetzt. */
+  zusammensetzung: { liquiditaet: number; immobilien: number; depot: number; sparen: number }
+}
+
 export interface GameState {
   gestartet: boolean
   spielerName: string
@@ -99,6 +117,8 @@ export interface GameState {
   tagesgeld: number // Sparguthaben (variabel verzinst)
   festgeld: FestgeldPosition[] // feste Anlagen mit Laufzeit
   recherche: string[] // im Internet freigeschaltete Infos (Gating)
+  monatsberichte: Monatsbericht[] // letzte 12 Monats-Auswertungen
+  berichtGesehen: number // höchster Monat, dessen Bericht der Spieler gesehen hat
   log: LogEintrag[]
 
   neuesSpiel: (l: Lebenssituation, startkapital: number) => void
@@ -113,6 +133,9 @@ export interface GameState {
     kosten: number,
     bauzeit: number,
     bautraeger?: string,
+    rating?: number,
+    risiko?: number,
+    qualiFaktor?: number,
   ) => void
   renovierungBeschleunigen: (uid: string) => void
   setNutzung: (uid: string, nutzung: Nutzung) => void
@@ -132,6 +155,8 @@ export interface GameState {
   festgeldAnlegen: (betrag: number, laufzeitMonate: number) => void
   /** Schaltet eine im Internet recherchierte Info frei (Gating). */
   freischalten: (key: string) => void
+  /** Markiert Monatsberichte bis inkl. `month` als gesehen (schließt das Pop-up). */
+  berichtGesehenSetzen: (month: number) => void
   /** Glücksspiel: zieht den Einsatz ab und schreibt den Gewinn (0 = verloren) gut. */
   gluecksspiel: (einsatz: number, gewinn: number) => void
   /** Zieht die Inseratsgebühr für eine Vermietung ab (ImmoProud). */
@@ -162,6 +187,8 @@ function persist(state: GameState) {
       tagesgeld: state.tagesgeld,
       festgeld: state.festgeld,
       recherche: state.recherche,
+      monatsberichte: state.monatsberichte,
+      berichtGesehen: state.berichtGesehen,
       log: state.log,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
@@ -205,6 +232,8 @@ export const useGame = create<GameState>((set, get) => ({
   tagesgeld: 0,
   festgeld: [],
   recherche: [],
+  monatsberichte: [],
+  berichtGesehen: 0,
   log: [],
 
   neuesSpiel: (l, startkapital) => {
@@ -223,6 +252,8 @@ export const useGame = create<GameState>((set, get) => ({
       tagesgeld: 0,
       festgeld: [],
       recherche: [],
+      monatsberichte: [],
+      berichtGesehen: 0,
       log: [
         {
           month: 0,
@@ -253,6 +284,8 @@ export const useGame = create<GameState>((set, get) => ({
       tagesgeld: 0,
       festgeld: [],
       recherche: [],
+      monatsberichte: [],
+      berichtGesehen: 0,
       log: [],
     })
   },
@@ -557,6 +590,13 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
+  berichtGesehenSetzen: (month) => {
+    const s = get()
+    if (month <= s.berichtGesehen) return
+    set({ berichtGesehen: month })
+    persist(get())
+  },
+
   gluecksspiel: (einsatz, gewinn) => {
     const s = get()
     const e = Math.round(einsatz)
@@ -577,7 +617,7 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
-  renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger) => {
+  renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger, rating, risiko, qualiFaktor) => {
     const s = get()
     const idx = s.owned.findIndex((o) => o.uid === uid)
     if (idx < 0) return
@@ -599,13 +639,16 @@ export const useGame = create<GameState>((set, get) => ({
       qualitaet,
       tempo,
       kosten: preis,
-      wertsteigerung: r.wertsteigerung,
+      // Bessere Bauträger (höherer qualiFaktor) heben den Wert stärker.
+      wertsteigerung: Math.round(r.wertsteigerung * (qualiFaktor ?? 1)),
       startMonth: s.monthIndex,
       fertigMonth: s.monthIndex + dauerMonate,
       fertigTs: Date.now() + dauerMonate * MS_PRO_MONAT,
       prompt: r.prompt,
       status: 'in_arbeit',
       bautraeger,
+      rating,
+      risiko,
     }
     const owned = [...s.owned]
     owned[idx] = { ...o, renovierung }
@@ -636,10 +679,13 @@ export const useGame = create<GameState>((set, get) => ({
     if (kosten > s.cash) return
 
     const owned = [...s.owned]
-    const aktuellerWert = Math.round(o.property.marktwert + o.renovierung.wertsteigerung)
-    const mietHebel = o.property.marktwert > 0 ? (o.renovierung.wertsteigerung / o.property.marktwert) * 1.15 : 0
-    const marktMiete = Math.round((o.marktMiete || o.property.kaltmieteMarkt) * (1 + mietHebel))
-    owned[idx] = { ...o, renovierung: { ...o.renovierung, status: 'fertig', fertigTs: Date.now() }, aktuellerWert, marktMiete }
+    const ab = renoAbschluss(o)
+    owned[idx] = {
+      ...o,
+      renovierung: { ...o.renovierung, status: 'fertig', fertigTs: Date.now() },
+      aktuellerWert: ab.aktuellerWert,
+      marktMiete: ab.marktMiete,
+    }
 
     const neu: LogEintrag[] = [
       {
@@ -648,14 +694,10 @@ export const useGame = create<GameState>((set, get) => ({
         betrag: -kosten,
         art: 'renovierung',
       },
-      {
-        month: Math.floor(s.monthIndex),
-        text: `Renovierung fertig: ${o.property.titel}. Neuer Wert ~${aktuellerWert.toLocaleString('de-DE')} €`,
-        art: 'renovierung',
-      },
+      ...ab.logs.map((l) => ({ month: Math.floor(s.monthIndex), ...l })),
     ]
 
-    set({ cash: s.cash - kosten, owned, log: [...neu, ...s.log].slice(0, 200) })
+    set({ cash: s.cash - kosten - ab.schaden, owned, log: [...neu, ...s.log].slice(0, 200) })
     persist(get())
   },
 
@@ -687,17 +729,14 @@ export const useGame = create<GameState>((set, get) => ({
       if (o.nutzung === 'vermietet') cash += o.kaltmiete * elapsed
       else cash -= o.property.hausgeldOderNebenkosten * elapsed
 
-      // Renovierung per Echtzeit-Timer fertigstellen
+      // Renovierung per Echtzeit-Timer fertigstellen (inkl. Bauträger-Risiko)
       if (o.renovierung && o.renovierung.status === 'in_arbeit' && now >= o.renovierung.fertigTs) {
+        const ab = renoAbschluss(o)
         updated.renovierung = { ...o.renovierung, status: 'fertig' }
-        updated.aktuellerWert = Math.round(o.property.marktwert + o.renovierung.wertsteigerung)
-        const mHebel = o.property.marktwert > 0 ? (o.renovierung.wertsteigerung / o.property.marktwert) * 1.15 : 0
-        updated.marktMiete = Math.round((o.marktMiete || o.property.kaltmieteMarkt) * (1 + mHebel))
-        neueLogs.push({
-          month: Math.floor(monthNach),
-          text: `Renovierung fertig: ${o.property.titel}. Neuer Wert ~${updated.aktuellerWert.toLocaleString('de-DE')} €`,
-          art: 'renovierung',
-        })
+        updated.aktuellerWert = ab.aktuellerWert
+        updated.marktMiete = ab.marktMiete
+        cash -= ab.schaden
+        for (const l of ab.logs) neueLogs.push({ month: Math.floor(monthNach), ...l })
       }
 
       return updated
@@ -735,6 +774,7 @@ export const useGame = create<GameState>((set, get) => ({
     // wie auf einem echten Konto (Gehalt, Mieten, Raten, Hausgeld, Ausgaben).
     const startM = Math.floor(s.monthIndex)
     const endM = Math.floor(monthNach)
+    let bericht: Monatsbericht | null = null
     if (endM > startM) {
       const netto = Math.round(s.lebenssituation.nettoEinkommen)
       const fix = Math.round(s.lebenssituation.fixkosten)
@@ -771,6 +811,30 @@ export const useGame = create<GameState>((set, get) => ({
       if (endM - startM > maxBuchen) {
         neueLogs.push({ month: von - 1, text: `${endM - startM - maxBuchen} weitere Monate zusammengefasst`, art: 'info' })
       }
+
+      // Monats-Auswertung (Auto-Pop-up): Einnahmen, Ausgaben, Vermögensbild.
+      const divEnd = s.depot.reduce((sum, pos) => {
+        const a = getAsset(pos.assetId)
+        if (!a || a.dividende <= 0) return sum
+        return sum + Math.round(pos.menge * assetPreis(a, endM) * (a.dividende / 12))
+      }, 0)
+      const festgeldEin = faellige.reduce((sum, f) => sum + Math.round(f.betrag * (1 + f.zinsSatz * (f.laufzeitMonate / 12))), 0)
+      const liquiditaet = Math.round(cash)
+      const immobilien = Math.round(portfolioWert(owned) - schulden(owned))
+      const depotW = Math.round(depotWert(s.depot, monthNach))
+      const sparNachher = Math.round(tagesgeld + festgeld.reduce((a, f) => a + f.betrag, 0))
+      const vermoegenNachher = liquiditaet + immobilien + depotW + sparNachher
+      const saldo = netto + sumMiete + divEnd + tgZins + festgeldEin - (sumRate + sumHaus + fix + sonder)
+      bericht = {
+        month: endM,
+        einnahmen: { gehalt: netto, miete: sumMiete, dividende: divEnd, zinsen: tgZins, festgeld: festgeldEin },
+        ausgaben: { raten: sumRate, hausgeld: sumHaus, lebenshaltung: fix, sonder },
+        saldo: Math.round(saldo),
+        vermoegenNachher,
+        portfolioDelta: Math.round(portfolioWert(owned) - portfolioWert(s.owned)),
+        gewinnGesamt: Math.round(vermoegenNachher - s.startEigenkapital),
+        zusammensetzung: { liquiditaet, immobilien, depot: depotW, sparen: sparNachher },
+      }
     }
 
     set({
@@ -780,6 +844,7 @@ export const useGame = create<GameState>((set, get) => ({
       owned,
       tagesgeld: Math.round(tagesgeld),
       festgeld,
+      monatsberichte: bericht ? [bericht, ...s.monatsberichte].slice(0, 12) : s.monatsberichte,
       log: neueLogs.length ? [...neueLogs, ...s.log].slice(0, 200) : s.log,
     })
     persist(get())
@@ -815,6 +880,51 @@ export function renoRestMs(o: OwnedProperty): number {
 export function skipKosten(o: OwnedProperty): number {
   const restMonate = renoRestMs(o) / MS_PRO_MONAT
   return Math.round(restMonate * o.property.kaufpreis * 0.003)
+}
+
+/**
+ * Schließt eine Renovierung ab und würfelt das Bauträger-Risiko aus:
+ * Günstige/schlechte Bauträger (hohes `risiko`) pfuschen häufiger — dann greift
+ * nur ein Bruchteil der Wertsteigerung, und es entstehen Wasserschäden (Kosten).
+ */
+export function renoAbschluss(o: OwnedProperty): {
+  aktuellerWert: number
+  marktMiete: number
+  schaden: number
+  pfusch: boolean
+  logs: { text: string; betrag?: number; art: LogEintrag['art'] }[]
+} {
+  const reno = o.renovierung
+  const marktwert = o.property.marktwert
+  if (!reno) return { aktuellerWert: o.aktuellerWert, marktMiete: o.marktMiete, schaden: 0, pfusch: false, logs: [] }
+
+  const risiko = reno.risiko ?? 0
+  const pfusch = Math.random() < risiko
+  // Bei Pfusch wirkt nur 15–30 % der geplanten Wertsteigerung.
+  const wirk = pfusch ? reno.wertsteigerung * (0.15 + Math.random() * 0.15) : reno.wertsteigerung
+  const aktuellerWert = Math.round(marktwert + wirk)
+  const mHebel = marktwert > 0 ? (wirk / marktwert) * 1.15 : 0
+  const marktMiete = Math.round((o.marktMiete || o.property.kaltmieteMarkt) * (1 + mHebel))
+  const schaden = pfusch ? Math.round(reno.kosten * (0.15 + Math.random() * 0.25)) : 0
+
+  const logs: { text: string; betrag?: number; art: LogEintrag['art'] }[] = []
+  if (pfusch) {
+    logs.push({
+      text: `⚠️ Pfusch am Bau: ${o.property.titel} — Mängel & Wasserschaden, Nacharbeit ${schaden.toLocaleString('de-DE')} €`,
+      betrag: -schaden,
+      art: 'renovierung',
+    })
+    logs.push({
+      text: `Renovierung mit Mängeln beendet: ${o.property.titel}. Wert nur ~${aktuellerWert.toLocaleString('de-DE')} €`,
+      art: 'renovierung',
+    })
+  } else {
+    logs.push({
+      text: `Renovierung fertig: ${o.property.titel}. Neuer Wert ~${aktuellerWert.toLocaleString('de-DE')} €`,
+      art: 'renovierung',
+    })
+  }
+  return { aktuellerWert, marktMiete, schaden, pfusch, logs }
 }
 
 // --- abgeleitete Kennzahlen ------------------------------------------------

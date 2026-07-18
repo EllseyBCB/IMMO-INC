@@ -7,6 +7,7 @@ import { ASSETS, aktuelleNews, assetPreis, assetVeraenderung } from './assets'
 import { euro, pct, area } from '../lib/format'
 import { mietrendite } from '../features/markt/propertyUtil'
 import { useGame } from '../state/game'
+import { BAUTRAEGER_POOL, preisLevel, type Bautraeger } from './bauangebote'
 import type { AppId, PhoneNav } from '../features/phone/nav'
 
 export type GigglePage =
@@ -15,6 +16,7 @@ export type GigglePage =
   | { typ: 'boersenblick' }
   | { typ: 'stadtwiki'; stadt: string }
   | { typ: 'service'; id: string }
+  | { typ: 'bautraeger'; sort?: 'preis' | 'rating' }
 
 export interface WebResult {
   titel: string
@@ -157,24 +159,13 @@ function Profil({ emoji, name, fach, note, text }: { emoji: string; name: string
   )
 }
 
+// Bauträger-Suche: Stämme, die das große Online-Verzeichnis auslösen.
+const BAUTRAEGER_KEYWORDS = [
+  'bauträger', 'bautraeger', 'handwerk', 'renovier', 'sanier', 'modernisier', 'umbau',
+  'küche', 'kueche', 'bad', 'fassade', 'energet', 'maler', 'streichen', 'boden', 'aufwerten', 'instand',
+]
+
 const SERVICES: Service[] = [
-  {
-    id: 'bautraeger',
-    titel: 'HandwerkerHeld — Bauträger & Sanierungsprofis finden',
-    url: 'handwerkerheld.gg',
-    keywords: ['bauträger', 'bautraeger', 'handwerk', 'renovier', 'sanier', 'modernisier', 'umbau', 'küche', 'kueche', 'bad', 'fassade', 'energet', 'maler', 'streichen', 'boden', 'aufwerten', 'instand'],
-    snippet: 'Geprüfte Bauträger für Renovierung & Sanierung. Angebote einholen und beauftragen.',
-    appZiel: 'bautraeger',
-    ctaText: '🔨 Bauträger beauftragen',
-    Body: () => (
-      <div className="space-y-2">
-        <p className="text-sm text-ink-700">Finde den passenden Bauträger, der deine Immobilie renoviert — vergleiche Angebote und verhandle Preis & Bauzeit.</p>
-        <Profil emoji="🛠️" name="Baris Yılmaz — Sanierungsprofi" fach="Komplettsanierung, Bäder, Küchen" note={5} text="Zuverlässig, ehrlich zu versteckten Mängeln. Meistgebucht in der Region." />
-        <Profil emoji="🏗️" name="BauStark GmbH" fach="Energetische Sanierung, Fassade" note={4} text="Faire Preise, etwas längere Bauzeit im Sparmodus." />
-        <Profil emoji="⚡" name="TurboBau24" fach="Express-Renovierungen" note={4} text="Blitzschnell fertig — dafür etwas teurer." />
-      </div>
-    ),
-  },
   {
     id: 'makler',
     titel: 'MaklerMatch — Immobilienmakler & Beratung',
@@ -258,6 +249,23 @@ export function sucheGiggle(query: string, objekte: Property[]): WebResult[] {
   const titelScore = (titel: string) => {
     const tl = titel.toLowerCase()
     return tokens.reduce((s, t) => (t.length >= 4 && tl.includes(t) ? s + 1 : s), 0)
+  }
+
+  // Bauträger-Verzeichnis (viele Firmen mit Bewertungen) — höchste Priorität bei Renovier-Intent
+  const btScore = kwScore(BAUTRAEGER_KEYWORDS)
+  if (btScore > 0) {
+    const guenstig = ['günstig', 'guenstig', 'billig', 'preiswert', 'spar', 'cheap'].some((k) => q.includes(k))
+    scored.push({
+      r: {
+        titel: `Bauträger & Sanierungsprofis in deiner Nähe — ${BAUTRAEGER_POOL.length} Firmen`,
+        url: 'bautraeger-finden.gg',
+        snippet: guenstig
+          ? 'Günstige Bauträger im Preisvergleich — mit Giggle-Bewertungen. Achtung: billig = höheres Risiko.'
+          : 'Geprüfte Bauträger für Renovierung & Sanierung — vergleiche Bewertungen, Preis & Tempo.',
+        page: { typ: 'bautraeger', sort: guenstig ? 'preis' : 'rating' },
+      },
+      score: btScore + 10,
+    })
   }
 
   // Dienstleister (Intent-basiert: nur bei Keyword-Treffer) — bekommen Priorität
@@ -357,6 +365,27 @@ export function WebPage({ page, objekte, nav }: { page: GigglePage; objekte: Pro
         >
           {s.ctaText} →
         </button>
+      </div>
+    )
+  }
+
+  if (page.typ === 'bautraeger') {
+    const liste = [...BAUTRAEGER_POOL].sort((a, b) =>
+      page.sort === 'preis' ? a.preisFaktor - b.preisFaktor : b.rating - a.rating,
+    )
+    return (
+      <div className="p-4">
+        <div className="text-[11px] text-emerald-600">🔒 bautraeger-finden.gg</div>
+        <h1 className="mt-1 text-lg font-black text-ink-900">🏗️ Bauträger finden</h1>
+        <p className="mt-1 text-xs text-ink-500">
+          {liste.length} Firmen in deiner Region · sortiert nach {page.sort === 'preis' ? 'Preis (günstig zuerst)' : 'Bewertung'}.
+          Tippe eine Firma an, um sie mit der Renovierung zu beauftragen.
+        </p>
+        <div className="mt-3 space-y-2">
+          {liste.map((bt) => (
+            <BautraegerKarte key={bt.id} bt={bt} onWaehlen={() => nav.open('renovieren', { bautraegerId: bt.id })} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -482,6 +511,34 @@ export function WebPage({ page, objekte, nav }: { page: GigglePage; objekte: Pro
         ))}
       </div>
     </div>
+  )
+}
+
+function BautraegerKarte({ bt, onWaehlen }: { bt: Bautraeger; onWaehlen: () => void }) {
+  const risikoHoch = bt.risiko >= 0.25
+  const risikoMittel = bt.risiko >= 0.12 && bt.risiko < 0.25
+  return (
+    <button
+      onClick={onWaehlen}
+      className="flex w-full items-center gap-3 rounded-xl bg-white p-2.5 text-left shadow-soft ring-1 ring-black/5 transition hover:bg-slate-50"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-xl">{bt.emoji}</span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-bold text-ink-900">{bt.name}</div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-amber-500">{'★'.repeat(Math.round(bt.rating))}{'☆'.repeat(Math.max(0, 5 - Math.round(bt.rating)))}</span>
+          <span className="font-semibold tabular-nums text-ink-700">{bt.rating.toFixed(1)}</span>
+          <span className="text-ink-400">({bt.bewertungen})</span>
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">{bt.spezialitaet}</span>
+          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{preisLevel(bt.preisFaktor)}</span>
+          {risikoHoch && <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">⚠️ hohes Risiko</span>}
+          {risikoMittel && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Risiko</span>}
+        </div>
+      </div>
+      <span className="text-ink-300">›</span>
+    </button>
   )
 }
 

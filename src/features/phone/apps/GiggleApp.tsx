@@ -142,6 +142,8 @@ function seiteUrl(page: GigglePage, objekte: Property[]): string {
       return page.id ? `immoscout24.gg/expose/${page.id.slice(0, 8)}` : 'immoscout24.gg'
     case 'service':
       return getService(page.id)?.url ?? 'giggle.gg'
+    case 'bautraeger':
+      return 'bautraeger-finden.gg'
   }
   void objekte
   return 'giggle.gg'

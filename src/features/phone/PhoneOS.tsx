@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { gesamtVermoegen, sparGuthaben, useGame } from '../../state/game'
 import { euro, euroShort, gameDatum, gameTag } from '../../lib/format'
+import { Modal } from '../../components/ui'
+import { Monatsberichtdetail } from './Monatsbericht'
 import { APPS, DOCK, appMeta, type AppId, type AppMeta, type PhoneNav } from './nav'
 
 import PropertyDetail from '../markt/PropertyDetail'
@@ -11,6 +13,7 @@ import BankingApp from '../handy/BankingApp'
 import BoerseApp from '../handy/BoerseApp'
 import ShopApp from '../handy/ShopApp'
 import BautraegerApp from '../handy/BautraegerApp'
+import RenovierenApp from './apps/RenovierenApp'
 import ImmoProudApp from './apps/ImmoProudApp'
 import NachrichtenApp from '../handy/Handy'
 import GiggleApp from './apps/GiggleApp'
@@ -57,6 +60,8 @@ export default function PhoneOS() {
               <HomeScreen nav={nav} />
             )}
           </div>
+
+          {!gesperrt && <MonatsberichtPopup />}
 
           {/* Home-Leiste */}
           {!gesperrt && (
@@ -120,6 +125,21 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   )
 }
 
+function MonatsberichtPopup() {
+  const monatsberichte = useGame((s) => s.monatsberichte)
+  const berichtGesehen = useGame((s) => s.berichtGesehen)
+  const berichtGesehenSetzen = useGame((s) => s.berichtGesehenSetzen)
+
+  const bericht = monatsberichte.find((b) => b.month > berichtGesehen)
+  if (!bericht) return null
+
+  return (
+    <Modal open onClose={() => berichtGesehenSetzen(bericht.month)}>
+      <Monatsberichtdetail bericht={bericht} onClose={() => berichtGesehenSetzen(bericht.month)} />
+    </Modal>
+  )
+}
+
 function FinanzWidget() {
   const { cash, owned, depot, monthIndex, tagesgeld, festgeld, monatVorspringen } = useGame()
   const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex, sparGuthaben(tagesgeld, festgeld))
@@ -146,7 +166,7 @@ function FinanzWidget() {
 }
 
 function HomeScreen({ nav }: { nav: PhoneNav }) {
-  const gridApps = APPS.filter((a) => a.id !== 'objekt' && !DOCK.includes(a.id))
+  const gridApps = APPS.filter((a) => a.id !== 'objekt' && a.id !== 'renovieren' && !DOCK.includes(a.id))
   const dockApps = DOCK.map(appMeta)
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-sky-200 via-indigo-100 to-slate-100">
@@ -201,7 +221,9 @@ function AppHost({ screen, nav }: { screen: Screen; nav: PhoneNav }) {
     case 'shop':
       return <ShopApp onClose={onClose} />
     case 'bautraeger':
-      return <BautraegerApp onClose={onClose} />
+      return <BautraegerApp onClose={onClose} nav={nav} />
+    case 'renovieren':
+      return <RenovierenApp onClose={onClose} nav={nav} bautraegerId={screen.props?.bautraegerId as string} />
     case 'daytrading':
       return <DaytradingApp onClose={onClose} nav={nav} />
     case 'slot':

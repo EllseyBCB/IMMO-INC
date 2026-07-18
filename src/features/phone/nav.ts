@@ -9,6 +9,7 @@ export type AppId =
   | 'boerse'
   | 'shop'
   | 'bautraeger'
+  | 'renovieren'
   | 'finanzen'
   | 'daytrading'
   | 'slot'
@@ -47,6 +48,7 @@ export const APPS: AppMeta[] = [
   { id: 'boerse', label: 'Börse', emoji: '📈', farbe: 'from-indigo-500 to-blue-600', native: true },
   { id: 'shop', label: 'Shop', emoji: '🛍️', farbe: 'from-violet-500 to-fuchsia-600', native: true },
   { id: 'bautraeger', label: 'Bauträger', emoji: '🏗️', farbe: 'from-orange-400 to-orange-600', native: true },
+  { id: 'renovieren', label: 'Renovieren', emoji: '🔨', farbe: 'from-orange-500 to-amber-600', native: true },
   { id: 'daytrading', label: 'Daytrading', emoji: '💹', farbe: 'from-slate-700 to-slate-900', native: true },
   { id: 'slot', label: 'Casino', emoji: '🎰', farbe: 'from-amber-500 to-yellow-700', native: true },
   { id: 'finanzen', label: 'Finanzen', emoji: '📊', farbe: 'from-slate-500 to-slate-700' },
