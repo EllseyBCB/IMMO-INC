@@ -162,7 +162,7 @@ const SERVICES: Service[] = [
     id: 'bautraeger',
     titel: 'HandwerkerHeld — Bauträger & Sanierungsprofis finden',
     url: 'handwerkerheld.gg',
-    keywords: ['bauträger', 'bautraeger', 'handwerker', 'renovieren', 'renovierung', 'sanieren', 'sanierung', 'modernisieren', 'umbau', 'küche', 'kueche', 'bad', 'badezimmer', 'energetisch', 'malern'],
+    keywords: ['bauträger', 'bautraeger', 'handwerk', 'renovier', 'sanier', 'modernisier', 'umbau', 'küche', 'kueche', 'bad', 'fassade', 'energet', 'maler', 'streichen', 'boden', 'aufwerten', 'instand'],
     snippet: 'Geprüfte Bauträger für Renovierung & Sanierung. Angebote einholen und beauftragen.',
     appZiel: 'bautraeger',
     ctaText: '🔨 Bauträger beauftragen',
@@ -179,7 +179,7 @@ const SERVICES: Service[] = [
     id: 'makler',
     titel: 'MaklerMatch — Immobilienmakler & Beratung',
     url: 'maklermatch.gg',
-    keywords: ['makler', 'immobilienmakler', 'beratung', 'besichtigung', 'verkaufsberatung'],
+    keywords: ['makler', 'besichtig', 'beratung', 'immobilienberatung', 'verkaufsberatung'],
     snippet: 'Erfahrene Makler für Kauf, Verkauf und Besichtigungen. Direkt Kontakt aufnehmen.',
     appZiel: 'nachrichten',
     ctaText: '💬 Makler anschreiben',
@@ -194,7 +194,7 @@ const SERVICES: Service[] = [
     id: 'vermieten',
     titel: 'MieterFinder — Wohnung vermieten & Mieter finden',
     url: 'mieterfinder.gg',
-    keywords: ['vermieten', 'mieter', 'mietersuche', 'mieter finden', 'inserieren', 'nachmieter', 'vermietung'],
+    keywords: ['vermiet', 'mieter', 'mietersuch', 'inserier', 'inserat', 'nachmieter'],
     snippet: 'Inseriere deine Wohnung und finde solvente Mieter. Anfragen treffen zeitversetzt ein.',
     appZiel: 'immobilien',
     extra: { tab: 'vermieten' },
@@ -210,7 +210,7 @@ const SERVICES: Service[] = [
     id: 'kredit',
     titel: 'KreditKompass — Baufinanzierung & Kredit vergleichen',
     url: 'kreditkompass.gg',
-    keywords: ['kredit', 'finanzierung', 'baufinanzierung', 'hypothek', 'darlehen', 'zins', 'zinsen', 'bonität', 'bonitaet'],
+    keywords: ['kredit', 'finanzier', 'baufinanz', 'hypothek', 'darlehen', 'zins', 'bonität', 'bonitaet', 'beleihung', 'annuität'],
     snippet: 'Finanzierung berechnen, Bonität prüfen und die besten Konditionen sichern.',
     appZiel: 'bank',
     ctaText: '🏦 Zur Bank',
@@ -225,7 +225,7 @@ const SERVICES: Service[] = [
     id: 'verkaufen',
     titel: 'FlipDeal — Immobilie verkaufen & Gewinn realisieren',
     url: 'flipdeal.gg',
-    keywords: ['verkaufen', 'flippen', 'flip', 'gewinn', 'immobilie verkaufen', 'weiterverkauf'],
+    keywords: ['verkauf', 'flip', 'gewinn', 'weiterverkauf', 'veräuß', 'veraeuss'],
     snippet: 'Verkaufe deine Immobilien mit Gewinn — beachte Spekulationssteuer bei < 10 Jahren.',
     appZiel: 'portfolio',
     ctaText: '💰 Zum Portfolio (verkaufen)',
@@ -241,78 +241,83 @@ export function getService(id: string): Service | undefined {
   return SERVICES.find((s) => s.id === id)
 }
 
-/** Giggle-Suche über das In-Game-Web. */
+/**
+ * Giggle-Suche über das In-Game-Web mit Relevanz-Ranking.
+ * Stamm-Matching (z. B. „renovier" trifft „renoviere/renovieren/renoviert"),
+ * das relevanteste Ergebnis steht oben — es erscheint also immer das Richtige.
+ */
 export function sucheGiggle(query: string, objekte: Property[]): WebResult[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
-  const tokens = q.split(/\s+/)
-  const res: WebResult[] = []
+  const tokens = q.split(/\s+/).filter((t) => t.length >= 3)
+  const scored: { r: WebResult; score: number }[] = []
 
-  // Dienstleister (Bauträger, Makler, Vermieten, Finanzierung, Verkaufen) — zuerst
+  // Punkte je Treffer eines Keyword-Stamms im Suchtext
+  const kwScore = (keywords: string[]) => keywords.reduce((s, k) => (q.includes(k) ? s + 4 : s), 0)
+  // Punkte, wenn ein (längeres) Suchwort im Titel steckt
+  const titelScore = (titel: string) => {
+    const tl = titel.toLowerCase()
+    return tokens.reduce((s, t) => (t.length >= 4 && tl.includes(t) ? s + 1 : s), 0)
+  }
+
+  // Dienstleister (Intent-basiert: nur bei Keyword-Treffer) — bekommen Priorität
   for (const s of SERVICES) {
-    if (s.keywords.some((k) => q.includes(k)) || tokens.some((t) => s.titel.toLowerCase().includes(t)))
-      res.push({ titel: s.titel, url: s.url, snippet: s.snippet, page: { typ: 'service', id: s.id } })
+    const score = kwScore(s.keywords)
+    if (score > 0) scored.push({ r: { titel: s.titel, url: s.url, snippet: s.snippet, page: { typ: 'service', id: s.id } }, score: score + 6 })
   }
 
   // Ratgeber-Artikel
   for (const a of ARTIKEL) {
-    if (a.keywords.some((k) => q.includes(k)) || tokens.some((t) => a.titel.toLowerCase().includes(t)))
-      res.push({ titel: a.titel, url: a.url, snippet: a.snippet, page: { typ: 'artikel', id: a.id } })
+    const score = kwScore(a.keywords) + titelScore(a.titel)
+    if (score > 0) scored.push({ r: { titel: a.titel, url: a.url, snippet: a.snippet, page: { typ: 'artikel', id: a.id } }, score: score + 2 })
   }
 
   // Börse / News
-  if (['börse', 'boerse', 'aktie', 'aktien', 'kurs', 'news', 'krypto', 'etf', 'nachrichten'].some((k) => q.includes(k)))
-    res.push({
-      titel: 'BörsenBlick — Aktuelle Kurse & Schlagzeilen',
-      url: 'boersenblick.gg',
-      snippet: 'Live-Ticker, Marktnews und Analysen zu Aktien, ETFs und Krypto.',
-      page: { typ: 'boersenblick' },
+  const boerse = kwScore(['börse', 'boerse', 'aktie', 'kurs', 'news', 'krypto', 'etf', 'nachricht', 'dividende', 'trading'])
+  if (boerse > 0)
+    scored.push({
+      r: { titel: 'BörsenBlick — Aktuelle Kurse & Schlagzeilen', url: 'boersenblick.gg', snippet: 'Live-Ticker, Marktnews und Analysen zu Aktien, ETFs und Krypto.', page: { typ: 'boersenblick' } },
+      score: boerse + 4,
     })
 
   // Städte
   const staedte = Array.from(new Set(objekte.map((o) => o.stadt)))
   for (const stadt of staedte) {
-    if (q.includes(stadt.toLowerCase())) {
-      res.push({
-        titel: `${stadt} — Immobilienmarkt & Preise (Stadt-Wiki)`,
-        url: `stadt-wiki.gg/${stadt.toLowerCase()}`,
-        snippet: `Durchschnittspreise, Lage und Mietniveau in ${stadt}.`,
-        page: { typ: 'stadtwiki', stadt },
+    if (q.includes(stadt.toLowerCase()))
+      scored.push({
+        r: { titel: `${stadt} — Immobilienmarkt & Preise (Stadt-Wiki)`, url: `stadt-wiki.gg/${stadt.toLowerCase()}`, snippet: `Durchschnittspreise, Lage und Mietniveau in ${stadt}.`, page: { typ: 'stadtwiki', stadt } },
+        score: 7,
       })
-    }
   }
 
-  // Objekte (ImmoScout-Klon)
+  // Objekte (ImmoScout-Klon) — nur wenn nach Kaufen/Objekten gesucht wird
+  const objektIntent = ['immobili', 'wohnung', 'haus', 'kaufen', 'objekt', 'eigentum', 'anlage'].some((k) => q.includes(k))
   const treffer = objekte
-    .filter(
-      (o) =>
-        tokens.some(
-          (t) =>
-            o.titel.toLowerCase().includes(t) ||
-            o.stadt.toLowerCase().includes(t) ||
-            o.stadtteil.toLowerCase().includes(t) ||
-            o.objektart.toLowerCase().includes(t),
-        ),
+    .filter((o) =>
+      tokens.some(
+        (t) =>
+          o.titel.toLowerCase().includes(t) ||
+          o.stadt.toLowerCase().includes(t) ||
+          o.stadtteil.toLowerCase().includes(t) ||
+          o.objektart.toLowerCase().includes(t),
+      ),
     )
     .slice(0, 6)
-  if (treffer.length > 0 || ['immobilie', 'wohnung', 'haus', 'kaufen', 'objekt'].some((k) => q.includes(k))) {
-    res.push({
-      titel: 'ImmoScout24 — Immobilien kaufen',
-      url: `immoscout24.gg/suche?q=${encodeURIComponent(query)}`,
-      snippet: `${treffer.length || 'Viele'} Angebote passend zu „${query}". Mit Marktwert-Einschätzung.`,
-      page: { typ: 'immoscout', q: query },
+  if (treffer.length > 0 || objektIntent) {
+    scored.push({
+      r: { titel: 'ImmoScout24 — Immobilien kaufen', url: `immoscout24.gg/suche?q=${encodeURIComponent(query)}`, snippet: `${treffer.length || 'Viele'} Angebote passend zu „${query}". Mit Marktwert-Einschätzung.`, page: { typ: 'immoscout', q: query } },
+      score: objektIntent ? 5 : 3,
     })
     for (const o of treffer) {
-      res.push({
-        titel: `${o.titel} — ${o.stadt} · ${euro(o.kaufpreis)}`,
-        url: `immoscout24.gg/expose/${o.id.slice(0, 8)}`,
-        snippet: `${o.objektart}, ${area(o.wohnflaeche)}, ${o.zimmer} Zi. in ${o.stadtteil || o.stadt}. Deal-Analyse verfügbar.`,
-        page: { typ: 'immoscout', id: o.id },
+      scored.push({
+        r: { titel: `${o.titel} — ${o.stadt} · ${euro(o.kaufpreis)}`, url: `immoscout24.gg/expose/${o.id.slice(0, 8)}`, snippet: `${o.objektart}, ${area(o.wohnflaeche)}, ${o.zimmer} Zi. in ${o.stadtteil || o.stadt}. Deal-Analyse verfügbar.`, page: { typ: 'immoscout', id: o.id } },
+        score: 1,
       })
     }
   }
 
-  return res
+  scored.sort((a, b) => b.score - a.score)
+  return scored.map((x) => x.r)
 }
 
 /** Rendert eine In-Game-Website im Browser. */
