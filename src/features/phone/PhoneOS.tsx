@@ -3,7 +3,6 @@ import { gesamtVermoegen, sparGuthaben, useGame } from '../../state/game'
 import { euro, euroShort, gameDatum, gameTag } from '../../lib/format'
 import { APPS, DOCK, appMeta, type AppId, type AppMeta, type PhoneNav } from './nav'
 
-import Markt from '../markt/Markt'
 import PropertyDetail from '../markt/PropertyDetail'
 import Portfolio from '../portfolio/Portfolio'
 import Bank from '../bank/Bank'
@@ -11,12 +10,14 @@ import Finanzen from '../finanzen/Finanzen'
 import BankingApp from '../handy/BankingApp'
 import BoerseApp from '../handy/BoerseApp'
 import ShopApp from '../handy/ShopApp'
-import VermietungApp from '../handy/VermietungApp'
 import BautraegerApp from '../handy/BautraegerApp'
+import ImmoProudApp from './apps/ImmoProudApp'
 import NachrichtenApp from '../handy/Handy'
 import GiggleApp from './apps/GiggleApp'
 import ChatOmgApp from './apps/ChatOmgApp'
 import EinstellungenApp from './apps/EinstellungenApp'
+import DaytradingApp from './apps/DaytradingApp'
+import SlotApp from './apps/SlotApp'
 
 interface Screen {
   app: AppId
@@ -191,16 +192,20 @@ function AppHost({ screen, nav }: { screen: Screen; nav: PhoneNav }) {
 
   // Native Apps (eigene Kopfzeile, füllen die Höhe selbst)
   switch (screen.app) {
+    case 'immobilien':
+      return <ImmoProudApp onClose={onClose} nav={nav} />
     case 'konten':
       return <BankingApp onClose={onClose} />
     case 'boerse':
       return <BoerseApp onClose={onClose} />
     case 'shop':
       return <ShopApp onClose={onClose} />
-    case 'vermietung':
-      return <VermietungApp onClose={onClose} />
     case 'bautraeger':
       return <BautraegerApp onClose={onClose} />
+    case 'daytrading':
+      return <DaytradingApp onClose={onClose} nav={nav} />
+    case 'slot':
+      return <SlotApp onClose={onClose} nav={nav} />
     case 'nachrichten':
       return <NachrichtenApp onClose={onClose} />
     case 'giggle':
@@ -212,9 +217,6 @@ function AppHost({ screen, nav }: { screen: Screen; nav: PhoneNav }) {
   // Dokument-Screens mit generischem AppBar + Scroll-Container
   let inhalt: React.ReactNode = null
   switch (screen.app) {
-    case 'immobilien':
-      inhalt = <Markt nav={nav} />
-      break
     case 'objekt':
       inhalt = <PropertyDetail objektId={screen.props?.objektId as string} nav={nav} />
       break

@@ -53,7 +53,7 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex h-full flex-col bg-slate-50">
       {/* Bank-Kopf */}
-      <div className="flex items-center gap-2 bg-brand-600 px-3 py-2 pt-3 text-white">
+      <div className="flex items-center gap-2 bg-red-600 px-3 py-2 pt-3 text-white">
         {view !== 'uebersicht' ? (
           <button onClick={() => setView('uebersicht')} className="rounded-lg px-1.5 py-0.5 text-lg" aria-label="Zurück">
             ‹
@@ -63,9 +63,9 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         )}
-        <span className="grid h-6 w-6 place-items-center rounded-md bg-white/20 text-xs font-black">II</span>
-        <span className="text-sm font-bold">IMMO&nbsp;INC Bank</span>
-        <span className="ml-auto text-[10px] text-white/70">{gameDatum(monthIndex)}</span>
+        <span className="grid h-6 w-6 place-items-center rounded-md bg-white text-xs font-black text-red-600">S</span>
+        <span className="text-sm font-bold">Starkasse</span>
+        <span className="ml-auto text-[10px] text-white/80">{gameDatum(monthIndex)}</span>
       </div>
 
       {view === 'uebersicht' && (
@@ -82,7 +82,7 @@ export default function BankingApp({ onClose }: { onClose: () => void }) {
             <div className="space-y-2">
               <KontoZeile
                 emoji="👤"
-                farbe="bg-brand-500"
+                farbe="bg-red-500"
                 titel="Privatkonto"
                 unter="Girokonto"
                 iban={iban('privat')}
@@ -207,7 +207,7 @@ function PrivatKonto() {
 
   return (
     <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
-      <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-700 p-4 text-white shadow-md">
+      <div className="rounded-2xl bg-gradient-to-br from-red-600 to-red-800 p-4 text-white shadow-md">
         <div className="text-[11px] uppercase tracking-wide text-white/70">Privatkonto · Kontostand</div>
         <div className="mt-0.5 text-3xl font-black tabular-nums">{euro(cash)}</div>
         <div className="mt-2 text-[11px] text-white/70">{iban('privat')}</div>

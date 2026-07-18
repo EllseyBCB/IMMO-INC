@@ -249,11 +249,30 @@ export default function BautraegerModal({
       </div>
 
       {!nichtsGewaehlt && (
-        <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-slate-50 p-4">
-          <Stat label="Richtpreis" value={euro(r.kosten)} tone="down" />
-          <Stat label="Wertsteigerung" value={euro(r.wertsteigerung)} tone="up" />
-          <Stat label="Bauzeit ~" value={`${r.bauzeit} Mon`} />
-        </div>
+        <>
+          <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-slate-50 p-4">
+            <Stat label="Richtpreis" value={euro(r.kosten)} tone="down" />
+            <Stat label="Wertsteigerung" value={euro(r.wertsteigerung)} tone="up" />
+            <Stat label="Bauzeit ~" value={`${r.bauzeit} Mon`} />
+          </div>
+          {/* Mietpreisspiegel: erzielbare Miete nach der Renovierung */}
+          {(() => {
+            const basis = Math.round(o.marktMiete || o.property.kaltmieteMarkt)
+            const neu = Math.round(basis * (1 + r.mietHebel))
+            return (
+              <div className="mt-2 flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-100">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Erzielbare Miete danach</div>
+                  <div className="text-[11px] text-emerald-600/80">Mietpreisspiegel · vorher {euro(basis)}/M</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-black tabular-nums text-emerald-700">{euro(neu)}/M</div>
+                  <div className="text-[11px] font-bold text-emerald-600">+{euro(neu - basis)}/M</div>
+                </div>
+              </div>
+            )
+          })()}
+        </>
       )}
 
       <div className="mt-4 flex gap-2">

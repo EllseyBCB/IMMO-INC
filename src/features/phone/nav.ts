@@ -8,9 +8,10 @@ export type AppId =
   | 'konten'
   | 'boerse'
   | 'shop'
-  | 'vermietung'
   | 'bautraeger'
   | 'finanzen'
+  | 'daytrading'
+  | 'slot'
   | 'nachrichten'
   | 'giggle'
   | 'chatomg'
@@ -39,14 +40,15 @@ export interface AppMeta {
 }
 
 export const APPS: AppMeta[] = [
-  { id: 'immobilien', label: 'Immobilien', emoji: '🏙️', farbe: 'from-sky-400 to-blue-600' },
+  { id: 'immobilien', label: 'ImmoProud', emoji: '🏙️', farbe: 'from-orange-400 to-red-500', native: true },
   { id: 'portfolio', label: 'Portfolio', emoji: '🗂️', farbe: 'from-amber-400 to-orange-500' },
   { id: 'bank', label: 'Bank', emoji: '🏦', farbe: 'from-emerald-400 to-teal-600' },
-  { id: 'konten', label: 'Konten', emoji: '🏛️', farbe: 'from-brand-500 to-brand-700', native: true },
+  { id: 'konten', label: 'Starkasse', emoji: '🏛️', farbe: 'from-red-500 to-red-700', native: true },
   { id: 'boerse', label: 'Börse', emoji: '📈', farbe: 'from-indigo-500 to-blue-600', native: true },
   { id: 'shop', label: 'Shop', emoji: '🛍️', farbe: 'from-violet-500 to-fuchsia-600', native: true },
-  { id: 'vermietung', label: 'Vermietung', emoji: '🔑', farbe: 'from-emerald-400 to-emerald-600', native: true },
   { id: 'bautraeger', label: 'Bauträger', emoji: '🏗️', farbe: 'from-orange-400 to-orange-600', native: true },
+  { id: 'daytrading', label: 'Daytrading', emoji: '💹', farbe: 'from-slate-700 to-slate-900', native: true },
+  { id: 'slot', label: 'Casino', emoji: '🎰', farbe: 'from-amber-500 to-yellow-700', native: true },
   { id: 'finanzen', label: 'Finanzen', emoji: '📊', farbe: 'from-slate-500 to-slate-700' },
   { id: 'einstellungen', label: 'Einstellungen', emoji: '⚙️', farbe: 'from-slate-400 to-slate-600' },
   { id: 'nachrichten', label: 'Nachrichten', emoji: '💬', farbe: 'from-green-400 to-green-600', native: true },

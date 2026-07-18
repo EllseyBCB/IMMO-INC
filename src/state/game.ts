@@ -65,6 +65,8 @@ export interface OwnedProperty {
   aktuellerWert: number
   nutzung: Nutzung
   kaltmiete: number
+  /** Aktuell erzielbare Marktmiete (steigt durch Renovierung). */
+  marktMiete: number
   mieterName?: string
   mieterRisiko?: Risiko
 }
@@ -130,6 +132,10 @@ export interface GameState {
   festgeldAnlegen: (betrag: number, laufzeitMonate: number) => void
   /** Schaltet eine im Internet recherchierte Info frei (Gating). */
   freischalten: (key: string) => void
+  /** Glücksspiel: zieht den Einsatz ab und schreibt den Gewinn (0 = verloren) gut. */
+  gluecksspiel: (einsatz: number, gewinn: number) => void
+  /** Zieht die Inseratsgebühr für eine Vermietung ab (ImmoProud). */
+  bezahleInserat: (gebuehr: number, titel: string) => void
   /** Wendet die real vergangene Zeit auf Kasse, Kredite, Zeit & Renovierungen an. */
   tick: () => void
   /** Springt exakt einen Monat vor (als wären die 4 Echt-Stunden vergangen). */
@@ -269,6 +275,7 @@ export const useGame = create<GameState>((set, get) => ({
       aktuellerWert: property.marktwert,
       nutzung: 'leer',
       kaltmiete: property.kaltmieteMarkt,
+      marktMiete: property.kaltmieteMarkt,
     }
 
     set({
@@ -550,6 +557,26 @@ export const useGame = create<GameState>((set, get) => ({
     persist(get())
   },
 
+  gluecksspiel: (einsatz, gewinn) => {
+    const s = get()
+    const e = Math.round(einsatz)
+    if (e <= 0 || e > s.cash) return
+    const netto = Math.round(gewinn) - e
+    set({ cash: s.cash + netto })
+    persist(get())
+  },
+
+  bezahleInserat: (gebuehr, titel) => {
+    const s = get()
+    const g = Math.round(gebuehr)
+    if (g <= 0 || g > s.cash) return
+    set({
+      cash: s.cash - g,
+      log: [{ month: Math.floor(s.monthIndex), text: `Inserat geschaltet: ${titel} (ImmoProud)`, betrag: -g, art: 'kosten' as const }, ...s.log].slice(0, 200),
+    })
+    persist(get())
+  },
+
   renovierenAushandeln: (uid, scopes, qualitaet, tempo, kosten, bauzeit, bautraeger) => {
     const s = get()
     const idx = s.owned.findIndex((o) => o.uid === uid)
@@ -610,7 +637,9 @@ export const useGame = create<GameState>((set, get) => ({
 
     const owned = [...s.owned]
     const aktuellerWert = Math.round(o.property.marktwert + o.renovierung.wertsteigerung)
-    owned[idx] = { ...o, renovierung: { ...o.renovierung, status: 'fertig', fertigTs: Date.now() }, aktuellerWert }
+    const mietHebel = o.property.marktwert > 0 ? (o.renovierung.wertsteigerung / o.property.marktwert) * 1.15 : 0
+    const marktMiete = Math.round((o.marktMiete || o.property.kaltmieteMarkt) * (1 + mietHebel))
+    owned[idx] = { ...o, renovierung: { ...o.renovierung, status: 'fertig', fertigTs: Date.now() }, aktuellerWert, marktMiete }
 
     const neu: LogEintrag[] = [
       {
@@ -662,6 +691,8 @@ export const useGame = create<GameState>((set, get) => ({
       if (o.renovierung && o.renovierung.status === 'in_arbeit' && now >= o.renovierung.fertigTs) {
         updated.renovierung = { ...o.renovierung, status: 'fertig' }
         updated.aktuellerWert = Math.round(o.property.marktwert + o.renovierung.wertsteigerung)
+        const mHebel = o.property.marktwert > 0 ? (o.renovierung.wertsteigerung / o.property.marktwert) * 1.15 : 0
+        updated.marktMiete = Math.round((o.marktMiete || o.property.kaltmieteMarkt) * (1 + mHebel))
         neueLogs.push({
           month: Math.floor(monthNach),
           text: `Renovierung fertig: ${o.property.titel}. Neuer Wert ~${updated.aktuellerWert.toLocaleString('de-DE')} €`,

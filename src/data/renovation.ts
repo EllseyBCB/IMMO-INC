@@ -148,6 +148,8 @@ export const BAUTEMPO: Record<Bautempo, BautempoInfo> = {
 export interface RenovationResult {
   kosten: number
   wertsteigerung: number
+  /** Anteil, um den sich die erzielbare Miete durch die Renovierung erhöht. */
+  mietHebel: number
   bauzeit: number
   prompt: string
 }
@@ -186,6 +188,8 @@ export function berechneRenovierung(
     // Bautempo verschiebt Kosten (schneller = teurer) und Zeit (mehr Geld = kürzer).
     kosten: Math.round(kosten * t.kostenFaktor),
     wertsteigerung: Math.round(wertsteigerung),
+    // Renovieren hebt die erzielbare Miete etwas stärker als den reinen Wert-Hebel.
+    mietHebel: gedeckelterHebel * 1.15,
     bauzeit: Math.max(1, Math.round(bauzeit * t.zeitFaktor)),
     prompt: promptTeile.join(', '),
   }

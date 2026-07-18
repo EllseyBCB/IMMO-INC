@@ -57,7 +57,7 @@ export function chatOmgAntwort(frageRoh: string): string {
 
   // Miete
   if (hat('miete', 'mieteinnahmen', 'cashflow'))
-    return `Deine Mieteinnahmen betragen ${euro(monatlicheMiete(owned))}/Monat, die Kreditraten ${euro(monatlicheRaten(owned))}/Monat. Vermieten läuft über die Vermietung-App auf dem Handy.`
+    return `Deine Mieteinnahmen betragen ${euro(monatlicheMiete(owned))}/Monat, die Kreditraten ${euro(monatlicheRaten(owned))}/Monat. Vermieten läuft über ImmoProud: dort inserierst du dein Objekt (kostet Gebühr) und Anfragen treffen mit der Zeit ein.`
 
   // Grunderwerbsteuer
   if (hat('grunderwerbsteuer', 'grest')) {
