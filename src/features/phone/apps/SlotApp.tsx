@@ -13,15 +13,21 @@ interface Sym {
   w: number
   pay: Record<number, number> // Anzahl gleicher -> x Linieneinsatz
 }
+// Echter Book-of-Ra-Symbolsatz: 3 hohe Bilder + Karten A/K/Q/J/10.
+// Karten zahlen erst ab 4 Gleichen → die meisten Runden ohne Gewinn (knausrig).
+// Auszahlungen so getunt, dass der Hausvorteil realistisch bei ~13 % liegt
+// (RTP ~87 %) und Gewinne selten sind (Trefferquote ~12 %).
 const SYMBOLS: Sym[] = [
-  { k: '🧭', w: 5, pay: { 3: 10, 4: 100, 5: 500 } },
-  { k: '🗿', w: 6, pay: { 3: 8, 4: 40, 5: 200 } },
-  { k: '🪲', w: 8, pay: { 3: 5, 4: 30, 5: 150 } },
-  { k: '🏺', w: 9, pay: { 3: 5, 4: 25, 5: 100 } },
-  { k: '💎', w: 11, pay: { 3: 2, 4: 10, 5: 75 } },
-  { k: '⭐', w: 12, pay: { 3: 2, 4: 10, 5: 75 } },
+  { k: '🧭', w: 3, pay: { 3: 7, 4: 68, 5: 680 } },
+  { k: '🗿', w: 4, pay: { 3: 3, 4: 40, 5: 270 } },
+  { k: '🪲', w: 5, pay: { 3: 3, 4: 27, 5: 200 } },
+  { k: 'A', w: 8, pay: { 4: 10, 5: 80 } },
+  { k: 'K', w: 9, pay: { 4: 7, 5: 55 } },
+  { k: 'Q', w: 10, pay: { 4: 5, 5: 40 } },
+  { k: 'J', w: 11, pay: { 4: 3, 5: 35 } },
+  { k: '10', w: 12, pay: { 4: 3, 5: 28 } },
 ]
-const BOOK_PAY: Record<number, number> = { 3: 2, 4: 20, 5: 200 } // x Gesamteinsatz (Scatter)
+const BOOK_PAY: Record<number, number> = { 3: 2, 4: 10, 5: 70 } // x Gesamteinsatz (Scatter)
 const ALLE = [...SYMBOLS, { k: BOOK, w: 3, pay: {} }]
 const GESAMT_W = ALLE.reduce((s, x) => s + x.w, 0)
 const PAYMAP: Record<string, Record<number, number>> = Object.fromEntries(SYMBOLS.map((s) => [s.k, s.pay]))
@@ -39,7 +45,14 @@ const LINES: number[][] = [
   [1, 2, 2, 2, 1],
   [0, 1, 1, 1, 0],
 ]
-const EINSAETZE = [10, 50, 100, 500]
+const MIN_EINSATZ = 10
+/** Schrittweite je nach Höhe (unten fein, oben grob). */
+function stufe(e: number): number {
+  if (e < 100) return 10
+  if (e < 500) return 50
+  if (e < 2000) return 100
+  return 500
+}
 
 function zieh(): string {
   let r = Math.random() * GESAMT_W
@@ -202,14 +215,16 @@ export default function SlotApp({ onClose }: { onClose: () => void; nav: PhoneNa
           {[0, 1, 2, 3, 4].map((reel) =>
             [0, 1, 2].map((row) => {
               const hot = cells.has(`${reel}-${row}`)
+              const sym = grid[reel]?.[row] ?? '10'
+              const istKarte = /^(10|[AKQJ])$/.test(sym)
               return (
                 <div
                   key={`${reel}-${row}`}
-                  className={`grid aspect-square place-items-center rounded-lg text-3xl transition ${
-                    hot ? 'bg-amber-300 ring-2 ring-amber-100' : 'bg-gradient-to-b from-amber-100/95 to-amber-200/90'
-                  } ${spinning ? 'blur-[1px]' : ''}`}
+                  className={`grid aspect-square place-items-center rounded-lg transition ${
+                    istKarte ? 'font-black text-2xl text-amber-800' : 'text-3xl'
+                  } ${hot ? 'bg-amber-300 ring-2 ring-amber-100' : 'bg-gradient-to-b from-amber-100/95 to-amber-200/90'} ${spinning ? 'blur-[1px]' : ''}`}
                 >
-                  {grid[reel]?.[row] ?? '⭐'}
+                  {sym}
                 </div>
               )
             }),
@@ -226,18 +241,41 @@ export default function SlotApp({ onClose }: { onClose: () => void; nav: PhoneNa
             ))}
         </div>
 
-        {/* Einsatz */}
-        <div className="mt-1 flex justify-center gap-2">
-          {EINSAETZE.map((e) => (
-            <button
-              key={e}
-              onClick={() => setEinsatz(e)}
+        {/* Einsatz — frei einstellbar */}
+        <div className="mt-1 flex items-center justify-center gap-2">
+          <button
+            onClick={() => setEinsatz((e) => Math.max(MIN_EINSATZ, e - stufe(e - 1)))}
+            disabled={spinning || einsatz <= MIN_EINSATZ}
+            className="grid h-9 w-9 place-items-center rounded-xl bg-black/30 text-xl font-black text-amber-100 disabled:opacity-40"
+          >
+            −
+          </button>
+          <div className="relative">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_EINSATZ}
+              value={einsatz}
+              onChange={(e) => setEinsatz(Math.max(MIN_EINSATZ, Math.round(Number(e.target.value) || MIN_EINSATZ)))}
               disabled={spinning}
-              className={`rounded-xl px-3 py-1.5 text-sm font-bold ${einsatz === e ? 'bg-amber-400 text-amber-950' : 'bg-black/30 text-amber-100'}`}
-            >
-              {euro(e)}
-            </button>
-          ))}
+              className="w-28 rounded-xl bg-black/30 py-1.5 pl-3 pr-6 text-right text-sm font-black tabular-nums text-amber-100 outline-none"
+            />
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-amber-300/70">€</span>
+          </div>
+          <button
+            onClick={() => setEinsatz((e) => e + stufe(e))}
+            disabled={spinning}
+            className="grid h-9 w-9 place-items-center rounded-xl bg-black/30 text-xl font-black text-amber-100 disabled:opacity-40"
+          >
+            +
+          </button>
+          <button
+            onClick={() => setEinsatz(Math.max(MIN_EINSATZ, Math.floor(cash)))}
+            disabled={spinning}
+            className="rounded-xl bg-amber-400/90 px-3 py-1.5 text-xs font-black text-amber-950 disabled:opacity-40"
+          >
+            Max
+          </button>
         </div>
         <div className="mt-1 text-center text-[10px] text-amber-200/50">
           {LINES.length} Linien · {euro(Math.round(lineBet))}/Linie · Buch = Wild &amp; Scatter
