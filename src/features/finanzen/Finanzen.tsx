@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import {
   gesamtVermoegen,
+  karriereRang,
   monatlicheMiete,
   monatlicheRaten,
   portfolioWert,
   schulden,
   sparGuthaben,
   useGame,
+  GEHALT_INTERVALL,
 } from '../../state/game'
 import { Button, Card, Modal, Stat } from '../../components/ui'
 import { Monatsberichtdetail } from '../phone/Monatsbericht'
@@ -29,7 +31,7 @@ const ART_STYLE: Record<string, { icon: string; tone: string }> = {
 }
 
 export default function Finanzen() {
-  const { cash, owned, log, monthIndex, startEigenkapital, lebenssituation, gekaufteLuxus, depot, tagesgeld, festgeld, monatsberichte, reset } = useGame()
+  const { cash, owned, log, monthIndex, modus, startEigenkapital, lebenssituation, gekaufteLuxus, depot, tagesgeld, festgeld, monatsberichte, reset } = useGame()
   const [resetOffen, setResetOffen] = useState(false)
   const [berichtOffen, setBerichtOffen] = useState<Monatsbericht | null>(null)
 
@@ -83,6 +85,39 @@ export default function Finanzen() {
           </div>
         </div>
       </Card>
+
+      {/* Karriere-Rang (nur Karriere-Modus) */}
+      {modus === 'karriere' && (() => {
+        const { rang, naechster, fortschritt } = karriereRang(vermoegen)
+        const bisRaise = GEHALT_INTERVALL - (Math.floor(monthIndex) % GEHALT_INTERVALL)
+        return (
+          <Card className="mt-4 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-ink-500">🏆 Karriere-Rang</h2>
+                <p className="mt-1 text-lg font-black text-ink-900">{rang.emoji} {rang.name}</p>
+              </div>
+              <div className="text-right">
+                <div className="text-[11px] uppercase tracking-wide text-ink-400">Netto-Gehalt</div>
+                <div className="text-base font-black tabular-nums text-ink-900">{euro(lebenssituation.nettoEinkommen)}/M</div>
+                <div className="text-[11px] text-ink-400">nächste Erhöhung in {bisRaise} Mon.</div>
+              </div>
+            </div>
+            {naechster && (
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-[11px] text-ink-500">
+                  <span>Aufstieg zu {naechster.emoji} {naechster.name}</span>
+                  <span className="tabular-nums">{Math.round(fortschritt * 100)} %</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.round(fortschritt * 100)}%` }} />
+                </div>
+                <div className="mt-1 text-right text-[11px] text-ink-400">ab {euro(naechster.ab)} Gesamtvermögen</div>
+              </div>
+            )}
+          </Card>
+        )
+      })()}
 
       {/* Wertpapierdepot */}
       {depot.length > 0 && (

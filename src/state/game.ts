@@ -10,6 +10,50 @@ import { ORDERGEBUEHR, assetPreis, depotWert, getAsset, type DepotPosition } fro
 export const MS_PRO_MONAT = 4 * 60 * 60 * 1000 // 1 Spiel-Monat = 4 Echt-Stunden
 const MAX_ELAPSED_MONATE = 12 // Offline-Fortschritt gedeckelt (kein Uralt-Sprung)
 
+// Spielmodus: „karriere" (ranked, fester Start + Gehaltserhöhungen) vs. „frei"
+// (Kreativmodus, eigene Zahlen, kein Ranking).
+export type Spielmodus = 'karriere' | 'frei'
+
+// Karriere-Modus: vergleichbarer Start für alle, dann arbeitet man sich hoch.
+export const KARRIERE_START_NETTO = 2300 // Netto-Gehalt zu Beginn
+export const KARRIERE_START_FIX = 1500 // Lebenshaltung (Miete, Essen, Versicherungen …)
+export const KARRIERE_STARTKAPITAL = 5000 // wenig Erspartes — man muss sich hocharbeiten
+export const GEHALT_INTERVALL = 9 // alle 9 Spiel-Monate eine Gehaltserhöhung
+export const GEHALT_STEIGERUNG = 0.055 // +5,5 % je Erhöhung
+export const GEHALT_MAX = 12000 // Deckel fürs Netto-Gehalt
+
+/** Karriere-Ränge nach Gesamtvermögen — misst, wie weit man sich hochgearbeitet hat. */
+export interface KarriereRang {
+  name: string
+  emoji: string
+  ab: number // ab diesem Gesamtvermögen
+}
+
+export const KARRIERE_RAENGE: KarriereRang[] = [
+  { name: 'Berufseinsteiger:in', emoji: '🎓', ab: -Infinity },
+  { name: 'Sparer:in', emoji: '🪙', ab: 20_000 },
+  { name: 'Erste eigene Wohnung', emoji: '🔑', ab: 75_000 },
+  { name: 'Immobilienbesitzer:in', emoji: '🏠', ab: 200_000 },
+  { name: 'Kleininvestor:in', emoji: '🏢', ab: 500_000 },
+  { name: 'Immobilien-Investor:in', emoji: '🏙️', ab: 1_500_000 },
+  { name: 'Portfolio-Profi', emoji: '💼', ab: 3_500_000 },
+  { name: 'Immobilien-Magnat:in', emoji: '💎', ab: 8_000_000 },
+  { name: 'Immobilien-Mogul:in', emoji: '👑', ab: 20_000_000 },
+]
+
+/** Ermittelt Rang, nächsten Rang und Fortschritt aus dem Gesamtvermögen. */
+export function karriereRang(vermoegen: number) {
+  let idx = 0
+  for (let i = 0; i < KARRIERE_RAENGE.length; i++) {
+    if (vermoegen >= KARRIERE_RAENGE[i].ab) idx = i
+  }
+  const rang = KARRIERE_RAENGE[idx]
+  const naechster = KARRIERE_RAENGE[idx + 1]
+  const basis = rang.ab === -Infinity ? 0 : rang.ab
+  const fortschritt = naechster ? Math.max(0, Math.min(1, (vermoegen - basis) / (naechster.ab - basis))) : 1
+  return { rang, index: idx, naechster, fortschritt }
+}
+
 // Sparen: sichere Anlage als Gegenpol zur Börse.
 export const TAGESGELD_ZINS = 0.03 // 3,0 % p. a., jederzeit verfügbar
 export const FESTGELD_STAFFEL: { monate: number; zins: number }[] = [
@@ -104,6 +148,7 @@ export interface Monatsbericht {
 
 export interface GameState {
   gestartet: boolean
+  modus: Spielmodus
   spielerName: string
   lebenssituation: Lebenssituation
   cash: number
@@ -121,7 +166,7 @@ export interface GameState {
   berichtGesehen: number // höchster Monat, dessen Bericht der Spieler gesehen hat
   log: LogEintrag[]
 
-  neuesSpiel: (l: Lebenssituation, startkapital: number) => void
+  neuesSpiel: (l: Lebenssituation, startkapital: number, modus?: Spielmodus) => void
   reset: () => void
   kaufen: (property: Property, finanzierung: Finanzierung, mitMakler: boolean) => void
   renovieren: (uid: string, scopes: RenovationScope[], qualitaet: Qualitaet, tempo: Bautempo) => void
@@ -174,6 +219,7 @@ function persist(state: GameState) {
   try {
     const snapshot = {
       gestartet: state.gestartet,
+      modus: state.modus,
       spielerName: state.spielerName,
       lebenssituation: state.lebenssituation,
       cash: state.cash,
@@ -219,6 +265,7 @@ const leereLebenssituation: Lebenssituation = { name: '', nettoEinkommen: 3200, 
 
 export const useGame = create<GameState>((set, get) => ({
   gestartet: false,
+  modus: 'karriere',
   spielerName: '',
   lebenssituation: leereLebenssituation,
   cash: 0,
@@ -236,9 +283,10 @@ export const useGame = create<GameState>((set, get) => ({
   berichtGesehen: 0,
   log: [],
 
-  neuesSpiel: (l, startkapital) => {
+  neuesSpiel: (l, startkapital, modus = 'karriere') => {
     const state: Partial<GameState> = {
       gestartet: true,
+      modus,
       spielerName: l.name,
       lebenssituation: l,
       cash: startkapital,
@@ -271,6 +319,7 @@ export const useGame = create<GameState>((set, get) => ({
     loescheSpielstand()
     set({
       gestartet: false,
+      modus: 'karriere',
       spielerName: '',
       lebenssituation: leereLebenssituation,
       cash: 0,
@@ -775,6 +824,7 @@ export const useGame = create<GameState>((set, get) => ({
     const startM = Math.floor(s.monthIndex)
     const endM = Math.floor(monthNach)
     let bericht: Monatsbericht | null = null
+    let lebenssituationNeu = s.lebenssituation
     if (endM > startM) {
       const netto = Math.round(s.lebenssituation.nettoEinkommen)
       const fix = Math.round(s.lebenssituation.fixkosten)
@@ -812,6 +862,27 @@ export const useGame = create<GameState>((set, get) => ({
         neueLogs.push({ month: von - 1, text: `${endM - startM - maxBuchen} weitere Monate zusammengefasst`, art: 'info' })
       }
 
+      // Karriere-Modus: alle GEHALT_INTERVALL Monate eine Gehaltserhöhung.
+      if (s.modus === 'karriere' && s.lebenssituation.nettoEinkommen < GEHALT_MAX) {
+        const raisesVorher = Math.floor(startM / GEHALT_INTERVALL)
+        const raisesNachher = Math.floor(endM / GEHALT_INTERVALL)
+        if (raisesNachher > raisesVorher) {
+          const neuNetto = Math.min(
+            GEHALT_MAX,
+            Math.round(s.lebenssituation.nettoEinkommen * Math.pow(1 + GEHALT_STEIGERUNG, raisesNachher - raisesVorher)),
+          )
+          if (neuNetto > s.lebenssituation.nettoEinkommen) {
+            const prozent = Math.round((neuNetto / s.lebenssituation.nettoEinkommen - 1) * 100)
+            lebenssituationNeu = { ...s.lebenssituation, nettoEinkommen: neuNetto }
+            neueLogs.push({
+              month: endM,
+              text: `📈 Gehaltserhöhung! +${prozent} % → ${neuNetto.toLocaleString('de-DE')} € netto/Monat`,
+              art: 'gehalt',
+            })
+          }
+        }
+      }
+
       // Monats-Auswertung (Auto-Pop-up): Einnahmen, Ausgaben, Vermögensbild.
       const divEnd = s.depot.reduce((sum, pos) => {
         const a = getAsset(pos.assetId)
@@ -844,6 +915,7 @@ export const useGame = create<GameState>((set, get) => ({
       owned,
       tagesgeld: Math.round(tagesgeld),
       festgeld,
+      lebenssituation: lebenssituationNeu,
       monatsberichte: bericht ? [bericht, ...s.monatsberichte].slice(0, 12) : s.monatsberichte,
       log: neueLogs.length ? [...neueLogs, ...s.log].slice(0, 200) : s.log,
     })
@@ -866,7 +938,9 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   laden: (partial) => {
-    set({ ...partial, lastTick: partial.lastTick || Date.now() })
+    // Ältere Spielstände kennen den Modus noch nicht → als „frei" behandeln
+    // (sie wurden mit eigenen Zahlen gestartet, ohne Karriere-Gehaltserhöhungen).
+    set({ ...partial, modus: partial.modus ?? 'frei', lastTick: partial.lastTick || Date.now() })
   },
 }))
 

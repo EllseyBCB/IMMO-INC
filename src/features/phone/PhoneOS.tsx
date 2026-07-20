@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { gesamtVermoegen, sparGuthaben, useGame } from '../../state/game'
+import { gesamtVermoegen, karriereRang, sparGuthaben, useGame } from '../../state/game'
 import { euro, euroShort, gameDatum, gameTag } from '../../lib/format'
 import { Modal } from '../../components/ui'
 import { Monatsberichtdetail } from './Monatsbericht'
@@ -141,14 +141,16 @@ function MonatsberichtPopup() {
 }
 
 function FinanzWidget() {
-  const { cash, owned, depot, monthIndex, tagesgeld, festgeld, monatVorspringen } = useGame()
+  const { cash, owned, depot, monthIndex, modus, tagesgeld, festgeld, monatVorspringen } = useGame()
   const vermoegen = gesamtVermoegen(cash, owned, depot, monthIndex, sparGuthaben(tagesgeld, festgeld))
+  const rang = modus === 'karriere' ? karriereRang(vermoegen).rang : null
   return (
     <div className="mx-4 rounded-3xl bg-white/85 p-4 shadow-lg ring-1 ring-black/5 backdrop-blur">
       <div className="flex items-start justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-ink-500">Gesamtvermögen</div>
           <div className="text-2xl font-black tabular-nums text-ink-900">{euroShort(vermoegen)}</div>
+          {rang && <div className="mt-0.5 text-[11px] font-semibold text-brand-600">{rang.emoji} {rang.name}</div>}
         </div>
         <button
           onClick={monatVorspringen}

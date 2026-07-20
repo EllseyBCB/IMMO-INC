@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { useGame } from '../../state/game'
+import {
+  useGame,
+  KARRIERE_START_NETTO,
+  KARRIERE_START_FIX,
+  KARRIERE_STARTKAPITAL,
+  GEHALT_INTERVALL,
+  KARRIERE_RAENGE,
+  type Spielmodus,
+} from '../../state/game'
 import { Button, Card, Field, Slider } from '../../components/ui'
 import { euro } from '../../lib/format'
 
@@ -91,6 +99,7 @@ export default function Onboarding() {
   const neuesSpiel = useGame((s) => s.neuesSpiel)
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
+  const [spielModus, setSpielModus] = useState<Spielmodus>('karriere')
   const [preset, setPreset] = useState<Preset>(PRESETS[1])
   const [modus, setModus] = useState<'schnell' | 'genau'>('schnell')
 
@@ -120,10 +129,19 @@ export default function Onboarding() {
   const effFix = modus === 'genau' ? ausgabenSumme : fixkosten
   const frei = effNetto - effFix
 
-  function start() {
+  function startFrei() {
     neuesSpiel(
       { name: name.trim() || 'Investor:in', nettoEinkommen: effNetto, fixkosten: effFix },
       startkapital,
+      'frei',
+    )
+  }
+
+  function startKarriere() {
+    neuesSpiel(
+      { name: name.trim() || 'Investor:in', nettoEinkommen: KARRIERE_START_NETTO, fixkosten: KARRIERE_START_FIX },
+      KARRIERE_STARTKAPITAL,
+      'karriere',
     )
   }
 
@@ -154,8 +172,8 @@ export default function Onboarding() {
       <div className="mx-auto max-w-3xl px-5 py-6">
         {step === 0 && (
           <Card className="p-6 animate-fade-in">
-            <h2 className="text-lg font-bold text-ink-900">Wer investiert hier?</h2>
-            <p className="mt-1 text-sm text-ink-500">Wähle eine Startsituation — anpassen kannst du sie gleich noch.</p>
+            <h2 className="text-lg font-bold text-ink-900">Wie willst du spielen?</h2>
+            <p className="mt-1 text-sm text-ink-500">Wähle deinen Modus — später kannst du jederzeit neu starten.</p>
 
             <div className="mt-4">
               <Field label="Dein Name (optional)">
@@ -169,24 +187,38 @@ export default function Onboarding() {
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => pick(p)}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    preset.key === p.key
-                      ? 'border-brand-400 bg-brand-50/60 ring-2 ring-brand-100'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl">{p.emoji}</span>
-                    <span className="text-xs font-bold text-brand-700">{euro(p.startkapital)}</span>
-                  </div>
-                  <div className="mt-2 text-sm font-bold text-ink-900">{p.titel}</div>
-                  <div className="text-xs text-ink-500">{p.beschreibung}</div>
-                </button>
-              ))}
+              <button
+                onClick={() => setSpielModus('karriere')}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  spielModus === 'karriere' ? 'border-brand-400 bg-brand-50/60 ring-2 ring-brand-100' : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">🏆</span>
+                  <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-700">RANGLISTE</span>
+                </div>
+                <div className="mt-2 text-sm font-bold text-ink-900">Karriere-Modus</div>
+                <div className="text-xs text-ink-500">
+                  Fairer Start für alle: {euro(KARRIERE_START_NETTO)} netto. Arbeite dich mit Gehaltserhöhungen &amp;
+                  Investments hoch und steig in den Rängen auf.
+                </div>
+              </button>
+
+              <button
+                onClick={() => setSpielModus('frei')}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  spielModus === 'frei' ? 'border-brand-400 bg-brand-50/60 ring-2 ring-brand-100' : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">🎨</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-ink-500">KREATIV</span>
+                </div>
+                <div className="mt-2 text-sm font-bold text-ink-900">Freier Modus</div>
+                <div className="text-xs text-ink-500">
+                  Leg dein Einkommen, deine Ausgaben und dein Startkapital selbst fest. Kein Ranking — spiel für dich.
+                </div>
+              </button>
             </div>
 
             <div className="mt-5 flex justify-end">
@@ -195,7 +227,50 @@ export default function Onboarding() {
           </Card>
         )}
 
-        {step === 1 && (
+        {step === 1 && spielModus === 'karriere' && (
+          <Card className="p-6 animate-fade-in">
+            <h2 className="text-lg font-bold text-ink-900">🏆 Karriere-Modus</h2>
+            <p className="mt-1 text-sm text-ink-500">
+              Alle starten gleich — was du daraus machst, zählt. Hier sind deine Startbedingungen:
+            </p>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <StartKachel label="Netto-Gehalt" wert={`${euro(KARRIERE_START_NETTO)}/M`} />
+              <StartKachel label="Lebenshaltung" wert={`− ${euro(KARRIERE_START_FIX)}/M`} />
+              <StartKachel label="Startkapital" wert={euro(KARRIERE_STARTKAPITAL)} />
+            </div>
+
+            <div className="mt-4 rounded-xl bg-brand-50/60 p-4 text-sm text-ink-700">
+              <div className="flex items-start gap-2">
+                <span>📈</span>
+                <span>
+                  <b>Gehaltserhöhungen:</b> Alle {GEHALT_INTERVALL} Spiel-Monate steigt dein Gehalt automatisch. Dazu
+                  kommen Miete, Flips, Börse &amp; Sparen — so arbeitest du dich Schritt für Schritt hoch.
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Die Karriereleiter</div>
+              <div className="flex flex-wrap gap-1.5">
+                {KARRIERE_RAENGE.map((r) => (
+                  <span key={r.name} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-ink-600">
+                    {r.emoji} {r.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-between">
+              <Button variant="ghost" onClick={() => setStep(0)}>
+                ← Zurück
+              </Button>
+              <Button onClick={startKarriere}>Karriere starten 🏠</Button>
+            </div>
+          </Card>
+        )}
+
+        {step === 1 && spielModus === 'frei' && (
           <Card className="p-6 animate-fade-in">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -222,6 +297,24 @@ export default function Onboarding() {
                 >
                   Genau eintragen
                 </button>
+              </div>
+            </div>
+
+            {/* Schnellvorlagen als Startpunkt */}
+            <div className="mt-4">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Vorlage (optional)</div>
+              <div className="flex flex-wrap gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    onClick={() => pick(p)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      preset.key === p.key ? 'border-brand-400 bg-brand-50/60 text-ink-900' : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>{p.emoji}</span> {p.titel} · {euro(p.startkapital)}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -328,13 +421,22 @@ export default function Onboarding() {
               <Button variant="ghost" onClick={() => setStep(0)}>
                 ← Zurück
               </Button>
-              <Button onClick={start} disabled={effNetto <= 0}>
+              <Button onClick={startFrei} disabled={effNetto <= 0}>
                 Los geht's 🏠
               </Button>
             </div>
           </Card>
         )}
       </div>
+    </div>
+  )
+}
+
+function StartKachel({ label, wert }: { label: string; wert: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3 text-center">
+      <div className="text-[10px] uppercase tracking-wide text-ink-400">{label}</div>
+      <div className="mt-0.5 text-sm font-black tabular-nums text-ink-900">{wert}</div>
     </div>
   )
 }
