@@ -87,9 +87,9 @@ export function Stat({
 }) {
   const colors = { ink: 'text-ink-900', up: 'text-emerald-600', down: 'text-rose-600' }
   return (
-    <div>
-      <div className="text-xs font-medium uppercase tracking-wide text-ink-500">{label}</div>
-      <div className={`mt-0.5 text-xl font-bold tabular-nums ${colors[tone]}`}>{value}</div>
+    <div className="min-w-0">
+      <div className="truncate text-xs font-medium uppercase tracking-wide text-ink-500">{label}</div>
+      <div className={`mt-0.5 break-words text-xl font-bold tabular-nums ${colors[tone]}`}>{value}</div>
       {sub && <div className="text-xs text-ink-500">{sub}</div>}
     </div>
   )

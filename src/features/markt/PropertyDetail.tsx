@@ -96,7 +96,7 @@ export default function PropertyDetail({ objektId, nav }: { objektId: string; na
               {p.plz} {p.stadt} · {p.bundesland}
             </p>
 
-            <div className="mt-4 text-3xl font-black text-ink-900">{euro(p.kaufpreis)}</div>
+            <div className="mt-4 break-words text-3xl font-black tabular-nums text-ink-900">{euro(p.kaufpreis)}</div>
             <p className="text-xs text-ink-500">
               + Kaufnebenkosten ~{euro(nk.gesamt)} ({pct(nk.quote * 100)})
             </p>
